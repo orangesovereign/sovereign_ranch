@@ -47,7 +47,11 @@ function Spawns.probe(src)
       Wait(250); waited = waited + 250
     end
     if not DoesEntityExist(entity) then
-      Log.error('PROBE RESULT: CreatePed returned %s but no entity exists after 5s — server spawning NOT viable as-is', tostring(entity))
+      -- OneSync state decides how to READ this failure: with onesync off or
+      -- legacy, server entity creation fails exactly like this on ANY
+      -- server — the result would be environmental, not a RedM verdict.
+      Log.error('PROBE RESULT: CreatePed returned %s but no entity exists after 5s — server spawning NOT viable as-is (onesync=%s)',
+        tostring(entity), GetConvar('onesync', 'off'))
       probe = nil
       return
     end
@@ -55,8 +59,8 @@ function Spawns.probe(src)
     pcall(function() netId = NetworkGetNetworkIdFromEntity(entity) end)
     probe = { entity = entity, netId = netId, model = 'a_c_cow', startedAt = os.time() }
     local pc = GetEntityCoords(entity)
-    Log.info('PROBE RESULT: server ped EXISTS — entity %s, netId %s, at %.2f %.2f %.2f. Now observe in-game: does it render, animate, survive the spawner leaving, and stream to a second client?',
-      tostring(entity), tostring(netId), pc.x, pc.y, pc.z)
+    Log.info('PROBE RESULT: server ped EXISTS — entity %s, netId %s, at %.2f %.2f %.2f (onesync=%s). Now observe in-game: does it render, animate, survive the spawner leaving, and stream to a second client?',
+      tostring(entity), tostring(netId), pc.x, pc.y, pc.z, GetConvar('onesync', 'off'))
 
     -- A freshly created RDR3 ped is UNDRESSED, and an undressed ped can
     -- render invisible (the suite's teller → receptionist lineage paid for
