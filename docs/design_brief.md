@@ -134,8 +134,14 @@
 
 ## 3b. §1.12 Known Follow-ups Outside This Script
 
-- **realestate patch needed:** enforce **per-account** (not per-character) ranch-class ownership in the realtor-brokered sale flow, before money moves. Small check against all characters on the buyer's VORP user identifier.
+- **realestate patch needed:** enforce **per-account** (not per-character) ranch-class ownership in the realtor-brokered sale flow, before money moves. Small check against all characters on the buyer's VORP user identifier. **✔ Landed 2026-08-13 (ranch Phase 0).**
 - **fenceBroken subscription:** already emitted by realestate — ranch just listens.
+
+## 3c. Round-3 Decisions Log (Aug 13, 2026 — Phase 0 kickoff)
+
+11. **Ranch = dual-use property (Wilbur ruling):** owning a ranch means owning both a home AND a business — it fills **both** realestate ownership slots. A ranch owner may hold no other property; owning any house or business blocks buying a ranch. Enforced in realestate's state machine + purchase flow (patched 2026-08-13). ✔
+12. **1-ranch-per-account confirmed** on top of the dual-use rule. ✔
+13. **Payroll ruling (design §14.5) resolved against `RunPayroll`:** banking's payroll export is society-only. Phase 5 will need a `RunBusinessPayroll` banking export (preferred, Wilbur decision pending) or per-hand transfers; the ranch's bank adapter already targets the business-aware name. ✔
 
 ---
 

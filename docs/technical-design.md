@@ -210,6 +210,8 @@ Checks are always **server-side**: `Members.can(charid, 'capability')` resolves 
 
 Realestate enforces one business-class property per **character**. Before completing a **ranch-class** sale, its purchase flow must additionally check every character on the buyer's VORP user identifier for an existing ranch-class holding. Small guarded query + one new error code (`ERR_ACCOUNT_HAS_RANCH`). Deliverable of our Phase 0 (it must exist before the first ranch is sold).
 
+**Landed 2026-08-13, widened by the dual-use ruling:** a ranch counts as home AND business, filling both ownership slots (`Properties.blockingHolding` in realestate's state machine + all three purchase gates). The account-wide check runs pre-charge and again post-charge (yield race). Realestate's `GetProperty`/`ListProperties` views now also expose `bizKey` for business classes — how our `Ranches.activate` resolves the bank account.
+
 ### 5.4 Duty clock & wage accrual
 
 - Clock-in/out: `sv.interact` prompt at the ranch (config point per ranch, boss-placeable later). Auto clock-out on disconnect, on fire/demote-below-member, on ranch teardown.
@@ -380,7 +382,7 @@ Drive contracts (config templates: route, head, payout) · hazards (predator amb
 2. **Ped scale native** — verify exact RDR3 native + arity before Phase 3 scaling.
 3. **Lasso detection** — event/native for "this ped is lassoed by this player" needs a Phase 4 spike; fallback is a prompt-based catch on a straying animal.
 4. **Model hashes** — verify every species/sex model against rdr3_discoveries in Phase 1.
-5. **`RunPayroll` society vs business key** — confirm the bank accepts a business key where it takes `society` (README suggests yes; verify in Phase 0 with a test payroll).
+5. **`RunPayroll` society vs business key** — ~~confirm the bank accepts a business key where it takes `society`~~ **RESOLVED 2026-08-13 (Phase 0, from banking source): it does NOT.** `Society.payroll` resolves `Config.Societies` only; business accounts (`owner_type='business'`) are invisible to it. Phase 5 decision: add a `RunBusinessPayroll(bizKey, entries, opts)` export to sovereign_banking (mirror of `Society.payroll` over `Business.account` — preferred, needs Wilbur's sign-off as a banking change) or fall back to per-hand `Transfer`s (loses batch atomicity). `server/bank.lua`'s `Bank.runPayroll` already calls the business-aware name so the banking patch needs no ranch-side change.
 
 ## 15. Reference
 
