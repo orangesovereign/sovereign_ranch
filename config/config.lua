@@ -51,6 +51,38 @@ Config.WipeHerdOnSellBack  = false  -- voluntary sell-back: keep (false) or wipe
 Config.AutoRunSchema       = true   -- run sql/install.sql + migrations on boot
 
 -- ============================================================================
+-- Simulation & care (Phase 1). Per-species numbers live in config/animals.lua;
+-- these are the global mechanics.
+-- ============================================================================
+Config.TickSeconds      = 60   -- SIM cadence for hot ranches (design §6.2)
+Config.PresenceSeconds  = 10   -- member-position sweep (server-side; drives hot/cold + steward)
+Config.FlushMinutes     = 5    -- write-behind full flush cadence
+
+-- Care verbs: server-validated cooldowns (per animal, minutes) and restore
+-- amounts (points). Range is metres from player to animal, server-checked.
+Config.CareCooldownMinutes = { feed = 30, water = 20, brush = 45 }
+Config.CareRestore         = { feed = 40, water = 40, brush = 50 }
+Config.CareRange           = 4.0
+
+-- Feed can require an item once sovereign_crafting/shops supply one; Phase 1
+-- default is free-with-cooldown so the care loop doesn't dead-end on an
+-- unobtainable item. Medicine IS an item from day one (sql/items.sql).
+Config.RequireFeedItem = false
+Config.FeedItem        = 'ranch_feed'
+Config.MedicineItem    = 'ranch_medicine'
+
+-- Sickness ladder (design §6.2): any need below `threshold` for
+-- `sickAfterMinutes` → sick (production halts). Still neglected past
+-- `criticalAfterMinutes` → critical, health drains per tick. Health 0 → dead.
+Config.Sickness = {
+  threshold             = 25,
+  sickAfterMinutes      = 60,
+  criticalAfterMinutes  = 120,
+  healthDrainPerTick    = 5,
+  treatRestoreNeeds     = 50,   -- needs floor after successful treatment
+}
+
+-- ============================================================================
 -- Admin & debug
 -- ============================================================================
 Config.AdminGroups = { admin = true, superadmin = true }  -- users.group / characters.group

@@ -130,6 +130,16 @@ function Bank.runPayroll(bizKey, payrollTable, opts)
   return ok, res
 end
 
+--- Open the business account for a ranch that never went through a real
+--- sale (admin-assigned — RegisterBusiness only runs in realestate's paid
+--- flow). Admin repair lever; idempotent on the bank side.
+function Bank.registerBusiness(bizKey, ownerCharid, priceCents, name)
+  local ok, res = call('RegisterBusiness', bizKey, tostring(ownerCharid),
+    math.floor(tonumber(priceCents) or 0), { name = name })
+  if ok == nil then return false, Err.BANKING end
+  return ok, res
+end
+
 --- Ledger read for the boss's ledger view (Phase 5).
 function Bank.transactions(bizKey, filterOpts)
   local acct = Bank.businessAccount(bizKey)

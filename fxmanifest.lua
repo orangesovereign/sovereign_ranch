@@ -20,7 +20,8 @@ lua54 'yes'
 shared_scripts {
   '@sovereign/init.lua',   -- the `sv` kernel (ownership, focus, interact, notify, progress)
   'config/config.lua',     -- global tunables; money authored in dollars, stored in cents
-  'config/animals.lua',    -- per-species stats (Phase 1+; loaded now so enums can validate)
+  'config/animals.lua',    -- per-species stats: models, prices, needs, growth
+  'config/market.lua',     -- the Valentine dealer (survey-gated), delivery terms
   'locales/en.lua',        -- every player-facing string
   'shared/enums.lua',      -- species, sex, states, capabilities, error codes, T() accessor
 }
@@ -37,7 +38,10 @@ server_scripts {
   -- Domain modules.
   'server/ranches.lua',    -- ranch registry keyed by realestate ident; lifecycle + reconcile
   'server/members.lua',    -- crew membership, hire/fire/promote, grade + access sync
-  'server/spawns.lua',     -- Phase 0: the server-spawn probe only (build ruling §14.1)
+  'server/animals.lua',    -- the herd: cache, caps, buy, care, pen/release (Phase 1)
+  'server/spawns.lua',     -- presence sweep, steward orders, netId ledger + Phase 0 probe
+  'server/needs.lua',      -- the SIM tick: needs decay, sickness ladder, death (Phase 1)
+  'server/requests.lua',   -- the validated inbound net-event surface (Phase 1)
   'server/api/events.lua', -- outbound sovereign_ranch:server:* emitters (emit-only)
   'server/api/exports.lua',-- the public export surface (suite contract)
   'server/admin.lua',      -- /ranchadmin + Config.Debug dev levers
@@ -45,7 +49,10 @@ server_scripts {
 }
 
 client_scripts {
-  'client/main.lua',       -- boot, notify receiver, probe assist; gameplay arrives Phase 1
+  'client/main.lua',       -- boot, notify receiver, probe dress assist
+  'client/animals.lua',    -- steward spawner, registry, dress rule (Phase 1)
+  'client/care.lua',       -- tend prompt + status text (Phase 1)
+  'client/menus.lua',      -- Herd Book + dealer (Phase 1)
 }
 
 dependencies {

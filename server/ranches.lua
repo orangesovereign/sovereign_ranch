@@ -121,11 +121,14 @@ function Ranches.teardown(ident, reason)
   local r = Ranches.getByIdent(ident)
   if not r then return true, nil end
 
-  -- 1. Freeze the herd (crash-safe: state machine only, no entity work here;
-  --    live peds belong to clients and die with their spawner scripts).
+  -- 1. Freeze the herd: live peds despawned server-side with positions
+  --    persisted (Spawns), then the DB-level pen as belt and braces for
+  --    rows the cache never saw (crash leftovers).
+  Spawns.penAllLive(r.id, 'teardown')
   local penned = Db.penAllAnimals(r.id) or 0
   if reason == 'soldback' and Config.WipeHerdOnSellBack then
     Db.deleteAnimals(r.id)
+    Animals.dropRanch(r.id)
     Log.info('teardown %s: herd wiped (%s)', ident, reason)
   end
 

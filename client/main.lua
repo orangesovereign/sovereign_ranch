@@ -32,10 +32,8 @@ end)
 --   NETWORK_GET_ENTITY_FROM_NETWORK_ID 0xCE4E5D9B0A4FF560 (netId) → Entity
 -- ============================================================================
 
-local function dressPed(ped)
-  pcall(function() Citizen.InvokeNative(0x283978A15512B2FE, ped, true) end)
-  pcall(function() Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, false, true, true, true, false) end)
-end
+-- (The dress function itself is RanchDress in client/animals.lua — one
+-- implementation of the standing rule for every ped this resource touches.)
 
 RegisterNetEvent('sovereign_ranch:client:probeDress', function(netId)
   netId = tonumber(netId)
@@ -55,9 +53,7 @@ RegisterNetEvent('sovereign_ranch:client:probeDress', function(netId)
       print(('[sovereign_ranch] probe dress: netId %d never streamed in on this client'):format(netId))
       return
     end
-    dressPed(entity)
-    Wait(100)
-    dressPed(entity)
+    RanchDress(entity)
     print(('[sovereign_ranch] probe dress: netId %d dressed (entity %d)'):format(netId, entity))
   end)
 end)

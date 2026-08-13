@@ -171,6 +171,46 @@ function Bridge.IsAdmin(src)
   return charGroup ~= nil and Config.AdminGroups[charGroup] == true
 end
 
+-- ============================================================================
+-- vorp_inventory (Phase 1: medicine + optional feed item). Guarded — a
+-- differing inventory version degrades to a clean refusal, never a throw.
+-- ============================================================================
+
+--- Remove `amount` of an item from a player. Count-check first, then take;
+--- returns true only when the inventory confirmed the removal. (subItem's
+--- return shape varies between inventory versions — anything but an
+--- explicit false after a positive count check is treated as taken.)
+function Bridge.SubItem(src, itemName, amount)
+  amount = amount or 1
+  if Bridge.GetItemCount(src, itemName) < amount then return false end
+  local ok, res = pcall(function()
+    return exports.vorp_inventory:subItem(src, itemName, amount, {})
+  end)
+  if not ok then
+    Log.warn('SubItem(%s) threw — check vorp_inventory', tostring(itemName))
+    return false
+  end
+  return res ~= false
+end
+
+--- Count of an item a player carries (0 when unknown).
+function Bridge.GetItemCount(src, itemName)
+  local ok, res = pcall(function()
+    return exports.vorp_inventory:getItemCount(src, nil, itemName)
+  end)
+  if not ok then return 0 end
+  return tonumber(res) or 0
+end
+
+--- Grant items (production collection in Phase 2; admin repair now).
+function Bridge.AddItem(src, itemName, amount)
+  local ok = pcall(function()
+    exports.vorp_inventory:addItem(src, itemName, amount or 1, {})
+  end)
+  if not ok then Log.warn('AddItem(%s) threw — check vorp_inventory', tostring(itemName)) end
+  return ok
+end
+
 --- fn(src) fires once a player has picked a character (job/wallet are live).
 function Bridge.OnCharacterSelected(fn)
   AddEventHandler('vorp:SelectedCharacter', function(source, ...)

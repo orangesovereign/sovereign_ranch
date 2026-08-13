@@ -115,8 +115,19 @@ RegisterCommand('ranchadmin', function(src, args)
     local ok, res = Members.fire(nil, tonumber(args[2]), 'admin')
     reply(src, ok and 'fired' or ('failed: ' .. tostring(res)))
 
+  elseif sub == 'bizinit' and args[2] then
+    -- Repair lever: open the bank business account for an ADMIN-ASSIGNED
+    -- ranch (a real sale registers it in realestate's paid flow; assigns
+    -- don't, leaving buys/payroll with no account to draw on).
+    local r = findRanch(args[2])
+    if not r then return reply(src, 'no ranch record for ' .. tostring(args[2])) end
+    if not r.owner_charid then return reply(src, r.ident .. ' has no owner') end
+    local ok, res = Bank.registerBusiness(r.biz_key or r.ident, r.owner_charid, 0, r.ident)
+    reply(src, ok and ('business account open for ' .. r.ident)
+      or ('failed: ' .. tostring(res)))
+
   else
-    reply(src, 'usage: /ranchadmin list | crew <ident|id> | reconcile | activate <ident|id> | teardown <ident|id> | hire <ident|id> <charid> [grade] | fire <charid>')
+    reply(src, 'usage: /ranchadmin list | crew <ident|id> | reconcile | activate <ident|id> | teardown <ident|id> | hire <ident|id> <charid> [grade] | fire <charid> | bizinit <ident|id>')
   end
 end, false)
 
@@ -141,6 +152,70 @@ RegisterCommand('sr_probe_clear', function(src)
   if not isDev(src) then return end
   local _, msg = Spawns.clearProbe()
   reply(src, msg)
+end, false)
+
+--- Fund a ranch business account for testing (Debug only): the account
+--- must exist first (real purchase or /ranchadmin bizinit).
+--- /sr_fund <ident|id> <dollars>
+RegisterCommand('sr_fund', function(src, args)
+  if not isDev(src) then return end
+  local r = args[1] and Ranches.getByIdent(args[1]) or nil
+  if not r then
+    local n = tonumber(args[1])
+    if n then r = Ranches.get(n) end
+  end
+  if not r then return reply(src, 'no ranch record for ' .. tostring(args[1])) end
+  local cents = math.floor((tonumber(args[2]) or 0) * 100)
+  if cents <= 0 then return reply(src, 'usage: /sr_fund <ident|id> <dollars>') end
+  local idem = ('ranch:devfund:%d:%d'):format(r.id, os.time())
+  local ok, res = Bank.credit(r.biz_key or r.ident, cents, 'ranch_admin_fund', idem, r.ident)
+  reply(src, ok and ('funded %s with $%.2f'):format(r.ident, cents / 100)
+    or ('failed: ' .. tostring(res) .. ' (account missing? /ranchadmin bizinit first)'))
+end, false)
+
+--- Survey helper: prints where you stand, ready to paste into a config
+--- coords table (the dealer spot, future pen points).
+RegisterCommand('sr_here', function(src)
+  if not isDev(src) then return end
+  if src == 0 then return print('[sovereign_ranch] run in-game') end
+  local ped = GetPlayerPed(src)
+  if not ped or ped == 0 then return end
+  local c = GetEntityCoords(ped)
+  local h = GetEntityHeading(ped)
+  reply(src, ('{ x = %.2f, y = %.2f, z = %.2f, h = %.2f }'):format(c.x, c.y, c.z, h))
+  print(('[sovereign_ranch] /sr_here: { x = %.2f, y = %.2f, z = %.2f, h = %.2f }')
+    :format(c.x, c.y, c.z, h))
+end, false)
+
+--- Force an animal's needs (ledger: neglect → sick → treat without waiting
+--- an hour). /sr_needs <animalId> <hunger> <thirst> [groom]
+RegisterCommand('sr_needs', function(src, args)
+  if not isDev(src) then return end
+  local a = Animals.get(tonumber(args[1]))
+  if not a then return reply(src, 'no such animal') end
+  a.hunger = math.max(0, math.min(100, tonumber(args[2]) or a.hunger))
+  a.thirst = math.max(0, math.min(100, tonumber(args[3]) or a.thirst))
+  if args[4] then a.groom = math.max(0, math.min(100, tonumber(args[4]) or a.groom)) end
+  Animals.touch(a)
+  Spawns.pushAnimal(a)
+  reply(src, ('animal #%d needs set: hunger %d thirst %d groom %d'):format(
+    a.id, a.hunger, a.thirst, a.groom))
+end, false)
+
+--- Force the sickness state. /sr_sick <animalId> <healthy|sick|critical>
+RegisterCommand('sr_sick', function(src, args)
+  if not isDev(src) then return end
+  local a = Animals.get(tonumber(args[1]))
+  if not a then return reply(src, 'no such animal') end
+  local state = tostring(args[2] or '')
+  if state ~= 'healthy' and state ~= 'sick' and state ~= 'critical' then
+    return reply(src, 'state must be healthy | sick | critical')
+  end
+  a.sick_state = state
+  if state == 'healthy' then Needs.clearSickTimer(a.id) end
+  Animals.touch(a)
+  Spawns.pushAnimal(a)
+  reply(src, ('animal #%d is now %s'):format(a.id, state))
 end, false)
 
 --- Cache/state introspection (perf budget §12 grows this in later phases).

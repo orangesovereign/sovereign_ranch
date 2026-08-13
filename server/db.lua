@@ -185,7 +185,69 @@ function Db.deleteMember(id)
 end
 
 -- ============================================================================
--- Animal rows — Phase 0 needs only the teardown freeze; CRUD lands Phase 1.
+-- Animal rows (Phase 1). The herd cache in server/animals.lua owns these
+-- rows in memory; the SIM writes behind through Db.flushAnimal(s).
+-- ============================================================================
+
+--- Every living animal row, boot-time cache load. Dead rows stay in the
+--- table as the death record but never enter the cache.
+function Db.loadAnimals()
+  return Db.query([[
+    SELECT id, ranch_id, species, sex, name,
+           UNIX_TIMESTAMP(born_at) AS born_at,
+           sim_minutes, scale, health, hunger, thirst, groom,
+           sick_state, pregnant_until, product_progress, product_ready,
+           state, pos, meta
+    FROM sovereign_ranch_animals
+    WHERE state <> 'dead'
+  ]], {})
+end
+
+--- Insert one animal. Returns insert id or nil.
+function Db.insertAnimal(a)
+  return Db.insert([[
+    INSERT INTO sovereign_ranch_animals
+      (ranch_id, species, sex, name, sim_minutes, scale, health, hunger,
+       thirst, groom, sick_state, state, pos)
+    VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''))
+  ]], {
+    a.ranch_id, a.species, a.sex, a.name or '',
+    a.sim_minutes or 0, a.scale or 0.5, a.health or 100,
+    a.hunger or 100, a.thirst or 100, a.groom or 100,
+    a.sick_state or 'healthy', a.state or 'penned', a.pos or '',
+  })
+end
+
+--- Write-behind for one animal's mutable simulation fields.
+function Db.flushAnimal(a)
+  return Db.execute([[
+    UPDATE sovereign_ranch_animals SET
+      name = NULLIF(?, ''), sim_minutes = ?, scale = ?, health = ?,
+      hunger = ?, thirst = ?, groom = ?, sick_state = ?,
+      pregnant_until = NULLIF(?, 0), product_progress = ?, product_ready = ?,
+      state = ?, pos = NULLIF(?, '')
+    WHERE id = ?
+  ]], {
+    a.name or '', a.sim_minutes or 0, a.scale or 0.5, a.health or 100,
+    a.hunger or 100, a.thirst or 100, a.groom or 100, a.sick_state or 'healthy',
+    a.pregnant_until or 0, a.product_progress or 0, a.product_ready and 1 or 0,
+    a.state or 'penned', a.pos or '', a.id,
+  })
+end
+
+--- Mark one animal dead (row kept as the record; slot freed by the cache).
+function Db.markAnimalDead(id)
+  return Db.execute(
+    "UPDATE sovereign_ranch_animals SET state = 'dead', health = 0 WHERE id = ?", { id })
+end
+
+--- Remove a row outright (market sale in Phase 4 archives via events; admin).
+function Db.deleteAnimal(id)
+  return Db.execute('DELETE FROM sovereign_ranch_animals WHERE id = ?', { id })
+end
+
+-- ============================================================================
+-- Teardown freeze (Phase 0)
 -- ============================================================================
 
 --- Freeze every live animal of a ranch back to 'penned' (teardown, crash

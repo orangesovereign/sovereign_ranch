@@ -19,6 +19,7 @@ CreateThread(function()
   -- 3. Caches.
   Ranches.load()
   Members.load()
+  Animals.load()
 
   -- 4. Boot reconcile — realestate is truth. Realestate may still be
   --    starting (ensure order isn't guaranteed across restarts), so wait
@@ -29,7 +30,7 @@ CreateThread(function()
   end
   Ranches.reconcile()
 
-  Log.info('sovereign_ranch up — Phase 0 (foundation & seams)')
+  Log.info('sovereign_ranch up — Phase 1 (animals & care)')
 end)
 
 -- Daily reconcile (design §4). Boot ran one; this keeps long-lived servers

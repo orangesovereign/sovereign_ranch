@@ -95,15 +95,25 @@ function API.SetStrayMultiplier(ident, mult)
   return true, { ident = r.ident, strayMult = r.stray_mult }
 end
 
--- AddAnimal / RemoveAnimal export with Phase 1 (animal CRUD does not exist
--- yet; registering a surface that returns ERR_INTERNAL would be worse than
--- its absence — fields/exports are only ever ADDED, so landing them later
--- breaks nobody).
+--- Admin/event tooling: add an animal to a ranch. opts = { name, state }.
+function API.AddAnimal(ident, species, sex, opts)
+  local r = Ranches.getByIdent(ident)
+  if not r then return false, Err.NO_RANCH end
+  local ok, res = Animals.add(r, tostring(species), tostring(sex), opts)
+  if not ok then return false, res end
+  return true, { animalId = res.id }
+end
+
+function API.RemoveAnimal(animalId, reason)
+  return Animals.remove(animalId, reason)
+end
 
 -- ============================================================================
 -- Registration
 -- ============================================================================
 
+exports('AddAnimal', API.AddAnimal)
+exports('RemoveAnimal', API.RemoveAnimal)
 exports('GetRanch', API.GetRanch)
 exports('GetRanchByOwner', API.GetRanchByOwner)
 exports('IsRanchMember', API.IsRanchMember)
