@@ -42,6 +42,12 @@ function Ranches.get(id) return cache[tonumber(id)] end
 function Ranches.getByIdent(ident) return byIdent[tostring(ident or ''):lower()] end
 function Ranches.all() return cache end
 
+--- Mapped points for a ranch (config/ranches.lua, keyed by ident — the map
+--- belongs to the property, not the owner). Always a table, possibly empty.
+function Ranches.pointsOf(ident)
+  return (Config.Ranches or {})[tostring(ident or ''):lower()] or {}
+end
+
 --- The ranch a charid OWNS (grade-4 seat), or nil. Membership answers "works
 --- at"; this answers "holds the deed of".
 function Ranches.getByOwner(charid)

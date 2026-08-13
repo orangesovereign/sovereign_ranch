@@ -372,8 +372,12 @@ end
 -- Pen / release
 -- ============================================================================
 
---- Release a penned animal to pasture: it spawns beside the requesting
---- member (who must be inside the ranch property, server-verified).
+--- Release a penned animal to pasture. If the ranch is MAPPED
+--- (config/ranches.lua), the animal materialises at its anchor — coop for
+--- chickens, barn for everything else — with a small scatter so a batch
+--- release doesn't stack peds. Unmapped ranches keep the fallback: beside
+--- the releasing member. Either way the releaser must be physically inside
+--- the property (server-verified).
 function Animals.release(src, animalId)
   local charid = Bridge.GetCharId(src)
   if not charid then return false, Err.NOT_MEMBER end
@@ -394,8 +398,18 @@ function Animals.release(src, animalId)
     return false, Err.BUSY
   end
 
+  local points = Ranches.pointsOf(ranch.ident)
+  local anchor = (a.species == 'chicken' and points.coop) or points.barn
+  if anchor then
+    -- 1.5–3m scatter ring around the anchor.
+    local ang = math.random() * 2 * math.pi
+    local dist = 1.5 + math.random() * 1.5
+    a.pos = { x = anchor.x + math.cos(ang) * dist,
+              y = anchor.y + math.sin(ang) * dist, z = anchor.z }
+  else
+    a.pos = { x = c.x + 1.5, y = c.y, z = c.z }
+  end
   a.state = State.SPAWNED
-  a.pos = { x = c.x + 1.5, y = c.y, z = c.z }
   Animals.touch(a)
   Spawns.materialise(a)
   return true, nil

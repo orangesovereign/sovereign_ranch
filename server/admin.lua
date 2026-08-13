@@ -115,6 +115,18 @@ RegisterCommand('ranchadmin', function(src, args)
     local ok, res = Members.fire(nil, tonumber(args[2]), 'admin')
     reply(src, ok and 'fired' or ('failed: ' .. tostring(res)))
 
+  elseif sub == 'points' and args[2] then
+    -- Which anchors does config/ranches.lua map for this ranch?
+    local r = findRanch(args[2])
+    local ident = r and r.ident or tostring(args[2]):lower()
+    local points = Ranches.pointsOf(ident)
+    local names = {}
+    for name in pairs(points) do names[#names + 1] = name end
+    table.sort(names)
+    reply(src, #names > 0
+      and (ident .. ' mapped points: ' .. table.concat(names, ', '))
+      or (ident .. ': no mapped points — release falls back beside the releaser'))
+
   elseif sub == 'bizinit' and args[2] then
     -- Repair lever: open the bank business account for an ADMIN-ASSIGNED
     -- ranch (a real sale registers it in realestate's paid flow; assigns
@@ -127,7 +139,7 @@ RegisterCommand('ranchadmin', function(src, args)
       or ('failed: ' .. tostring(res)))
 
   else
-    reply(src, 'usage: /ranchadmin list | crew <ident|id> | reconcile | activate <ident|id> | teardown <ident|id> | hire <ident|id> <charid> [grade] | fire <charid> | bizinit <ident|id>')
+    reply(src, 'usage: /ranchadmin list | crew <ident|id> | reconcile | activate <ident|id> | teardown <ident|id> | hire <ident|id> <charid> [grade] | fire <charid> | bizinit <ident|id> | points <ident|id>')
   end
 end, false)
 

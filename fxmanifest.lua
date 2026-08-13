@@ -22,6 +22,7 @@ shared_scripts {
   'config/config.lua',     -- global tunables; money authored in dollars, stored in cents
   'config/animals.lua',    -- per-species stats: models, prices, needs, growth
   'config/market.lua',     -- the Valentine dealer (survey-gated), delivery terms
+  'config/ranches.lua',    -- per-ranch mapped points (barn, coop, pasture...)
   'locales/en.lua',        -- every player-facing string
   'shared/enums.lua',      -- species, sex, states, capabilities, error codes, T() accessor
 }
