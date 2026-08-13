@@ -18,6 +18,39 @@ local function reply(src, msg)
   else Notify.toast(src, 'Ranch Admin', msg, 'info') end
 end
 
+--- Resolve a ranch from whatever an admin typed: the property ident, OUR
+--- ranch #id (as /ranchadmin list prints), or the realestate property id
+--- (as /assignhouse and the realtor tooling print). Testers reach for
+--- whichever number is on their screen — accept all three (ledger L2).
+local function findRanch(arg)
+  if not arg then return nil end
+  local r = Ranches.getByIdent(arg)
+  if r then return r end
+  local n = tonumber(arg)
+  if n then
+    r = Ranches.get(n)
+    if r then return r end
+    for _, p in ipairs(Estate.listRanchProperties()) do
+      if tonumber(p.id) == n then return Ranches.getByIdent(p.ident) end
+    end
+  end
+  return nil
+end
+
+--- Same resolution, but for commands that may target a property with NO
+--- ranch record yet (activate): fall through to the realestate ident.
+local function resolveIdent(arg)
+  local r = findRanch(arg)
+  if r then return r.ident end
+  local n = tonumber(arg)
+  if n then
+    for _, p in ipairs(Estate.listRanchProperties()) do
+      if tonumber(p.id) == n then return p.ident end
+    end
+  end
+  return arg
+end
+
 -- ============================================================================
 -- /ranchadmin <sub> — inspection & lifecycle
 -- ============================================================================
@@ -40,7 +73,7 @@ RegisterCommand('ranchadmin', function(src, args)
     if n == 0 then reply(src, 'no ranch records') end
 
   elseif sub == 'crew' and args[2] then
-    local r = Ranches.getByIdent(args[2])
+    local r = findRanch(args[2])
     if not r then return reply(src, 'no ranch record for ' .. tostring(args[2])) end
     local crew = Members.crewOf(r.id)
     if #crew == 0 then return reply(src, r.ident .. ': no crew') end
@@ -58,16 +91,19 @@ RegisterCommand('ranchadmin', function(src, args)
   elseif sub == 'activate' and args[2] then
     -- Repair lever: force-activate from realestate truth (e.g. after an
     -- admin /assignhouse, which emits no propertySold).
-    local ok, res = Ranches.activate(args[2], nil)
-    reply(src, ok and ('activated ' .. args[2]) or ('failed: ' .. tostring(res)))
+    local ident = resolveIdent(args[2])
+    local ok, res = Ranches.activate(ident, nil)
+    reply(src, ok and ('activated ' .. ident) or ('failed: ' .. tostring(res)))
 
   elseif sub == 'teardown' and args[2] then
-    local ok, res = Ranches.teardown(args[2], 'admin')
-    reply(src, ok and ('torn down ' .. args[2]) or ('failed: ' .. tostring(res)))
+    local r = findRanch(args[2])
+    if not r then return reply(src, 'no ranch record for ' .. tostring(args[2])) end
+    local ok, res = Ranches.teardown(r.ident, 'admin')
+    reply(src, ok and ('torn down ' .. r.ident) or ('failed: ' .. tostring(res)))
 
   elseif sub == 'hire' and args[2] and args[3] then
-    -- Admin repair hire: /ranchadmin hire <ident> <charid> [grade 0-3]
-    local r = Ranches.getByIdent(args[2])
+    -- Admin repair hire: /ranchadmin hire <ident|id> <charid> [grade 0-3]
+    local r = findRanch(args[2])
     if not r then return reply(src, 'no ranch record for ' .. tostring(args[2])) end
     local ok, res = Members.hire(nil, r, tonumber(args[3]), 0)
     if ok and args[4] then
@@ -80,7 +116,7 @@ RegisterCommand('ranchadmin', function(src, args)
     reply(src, ok and 'fired' or ('failed: ' .. tostring(res)))
 
   else
-    reply(src, 'usage: /ranchadmin list | crew <ident> | reconcile | activate <ident> | teardown <ident> | hire <ident> <charid> [grade] | fire <charid>')
+    reply(src, 'usage: /ranchadmin list | crew <ident|id> | reconcile | activate <ident|id> | teardown <ident|id> | hire <ident|id> <charid> [grade] | fire <charid>')
   end
 end, false)
 
@@ -108,8 +144,10 @@ RegisterCommand('sr_probe_clear', function(src)
 end, false)
 
 --- Cache/state introspection (perf budget §12 grows this in later phases).
+--- STAFF-gated, not Debug-gated: stats are diagnostics, not a dev lever —
+--- Debug-gating made it silently dead on a stock config (ledger B3).
 RegisterCommand('sr_stats', function(src)
-  if not isDev(src) then return end
+  if not isStaff(src) then return end
   local ranches, members = 0, 0
   for _, r in pairs(Ranches.all()) do
     ranches = ranches + 1
