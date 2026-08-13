@@ -18,3 +18,46 @@ RegisterNetEvent('sovereign_ranch:client:notify', function(payload)
                      tone = payload.tone, renderer = payload.renderer })
   end
 end)
+
+-- ============================================================================
+-- Probe assist (server/spawns.lua). A freshly created RDR3 ped is UNDRESSED
+-- and can render INVISIBLE until a variation is applied — every ped this
+-- resource ever spawns must be dressed (Wilbur ruling 2026-08-13; the
+-- banking-teller → realestate-receptionist lineage proved the pattern).
+-- Outfit natives are client-side, so the server asks this client to dress
+-- the probe ped by netId. Two-native dress, 100ms settle beat, dress again.
+-- Natives verified against natives_rdr3.json 2026-08-13:
+--   _SET_RANDOM_OUTFIT_VARIATION       0x283978A15512B2FE (Ped, BOOL)
+--   _UPDATE_PED_VARIATION              0xCC8CA3E88256E58F (Ped, 5×BOOL)
+--   NETWORK_GET_ENTITY_FROM_NETWORK_ID 0xCE4E5D9B0A4FF560 (netId) → Entity
+-- ============================================================================
+
+local function dressPed(ped)
+  pcall(function() Citizen.InvokeNative(0x283978A15512B2FE, ped, true) end)
+  pcall(function() Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, false, true, true, true, false) end)
+end
+
+RegisterNetEvent('sovereign_ranch:client:probeDress', function(netId)
+  netId = tonumber(netId)
+  if not netId or netId == 0 then return end
+  CreateThread(function()
+    -- Server-created entities stream in asynchronously; poll briefly.
+    local entity, waited = 0, 0
+    while waited < 5000 do
+      if NetworkDoesEntityExistWithNetworkId(netId) then
+        entity = NetworkGetEntityFromNetworkId(netId)
+        if entity ~= 0 and DoesEntityExist(entity) then break end
+      end
+      entity = 0
+      Wait(250); waited = waited + 250
+    end
+    if entity == 0 then
+      print(('[sovereign_ranch] probe dress: netId %d never streamed in on this client'):format(netId))
+      return
+    end
+    dressPed(entity)
+    Wait(100)
+    dressPed(entity)
+    print(('[sovereign_ranch] probe dress: netId %d dressed (entity %d)'):format(netId, entity))
+  end)
+end)

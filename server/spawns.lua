@@ -57,6 +57,17 @@ function Spawns.probe(src)
     local pc = GetEntityCoords(entity)
     Log.info('PROBE RESULT: server ped EXISTS — entity %s, netId %s, at %.2f %.2f %.2f. Now observe in-game: does it render, animate, survive the spawner leaving, and stream to a second client?',
       tostring(entity), tostring(netId), pc.x, pc.y, pc.z)
+
+    -- A freshly created RDR3 ped is UNDRESSED, and an undressed ped can
+    -- render invisible (the suite's teller → receptionist lineage paid for
+    -- this; Wilbur ruling 2026-08-13 makes it a spawn-path requirement).
+    -- The outfit natives are CLIENT game natives, so the server asks the
+    -- probing player's client to dress the ped by netId — without this the
+    -- probe could report a healthy entity that nobody can see and the
+    -- ruling would be written against server spawning falsely.
+    if netId ~= 0 then
+      TriggerClientEvent('sovereign_ranch:client:probeDress', src, netId)
+    end
   end)
   return true, 'probe ped requested — watch the server console, then the world'
 end
