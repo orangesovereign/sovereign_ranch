@@ -399,7 +399,9 @@ function Animals.release(src, animalId)
   end
 
   local points = Ranches.pointsOf(ranch.ident)
-  local anchor = (a.species == 'chicken' and points.coop) or points.barn
+  -- Chickens: the ground-level pen first, the coop structure as fallback.
+  local anchor = (a.species == 'chicken' and (points.chickenPen or points.coop))
+    or points.barn
   if anchor then
     -- 1.5–3m scatter ring around the anchor.
     local ang = math.random() * 2 * math.pi
