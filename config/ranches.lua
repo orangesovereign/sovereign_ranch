@@ -15,7 +15,12 @@
                 preferred over the coop structure for spawning)
     coop        Phase 2 egg-collection point; chicken release FALLBACK when
                 no chickenPen is mapped
-    pasture     reserved: settle/wander centre for Phase 4 herding + strays
+    pasture     reserved: the ON-PROPERTY settle/wander centre — where
+                animals idle when all is well, and the HOME anchor a
+                wrangled stray is led back to. NOT where strays drift:
+                straying (Phase 4) computes its drift points OUTSIDE the
+                realestate land polygon at runtime (config distance band) —
+                loose animals leave the property lines by design.
   Phase 2 will add (same table, same survey lever): butcher, manure,
   buyerPed. Phase 5 adds: duty (the clock-in point).
 
