@@ -100,7 +100,13 @@ free-standing scenario:
   distinction decides whether anything plays at all. Only ever pass the
   table KEYS above.
 
-## Suggested Phase 1/2 mapping (once game-proven)
+## Phase 1/2 mapping — WIRED 2026-08-13 via `Config.CareAnims`
+
+The first picks below are live in the care verbs (scenario + `sv.progress`
+bar, request fired at completion, cancel sends nothing). Female peds fall
+back to CROUCH_INSPECT for anything outside `Config.FemaleSafeAnims`.
+Ledger gate VIII + care gate V audition them; losers are swapped in
+config, not code.
 
 | Ranch verb | First pick | Fallback |
 |---|---|---|

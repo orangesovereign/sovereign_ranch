@@ -173,6 +173,20 @@ RegisterCommand('sr_fund', function(src, args)
     or ('failed: ' .. tostring(res) .. ' (account missing? /ranchadmin bizinit first)'))
 end, false)
 
+--- Animation candidate preview (docs/animations-reference.md): plays a
+--- scenario TYPE on your ped so candidates can be judged in-game before
+--- any care verb leans on one. /sr_anim <SCENARIO_NAME> [ms] · /sr_anim stop
+RegisterCommand('sr_anim', function(src, args)
+  if not isDev(src) then return end
+  if src == 0 then return print('[sovereign_ranch] run in-game') end
+  local name = tostring(args[1] or '')
+  if name == '' then
+    return reply(src, 'usage: /sr_anim <SCENARIO_TYPE> [durationMs] | /sr_anim stop')
+  end
+  TriggerClientEvent('sovereign_ranch:client:devAnim', src, name,
+    tonumber(args[2]) or 6000)
+end, false)
+
 --- Survey helper: prints where you stand, ready to paste into a config
 --- coords table (the dealer spot, future pen points).
 RegisterCommand('sr_here', function(src)

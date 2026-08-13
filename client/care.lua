@@ -46,6 +46,56 @@ end
 -- the judge of every option picked.
 -- ============================================================================
 
+-- ============================================================================
+-- Care animation + progress (design §9: sv.progress for every timed care
+-- action; the scenario is flavor, the SERVER request at the end is the
+-- deal). Scenario per verb/species from Config.CareAnims; female peds get
+-- the game-proven fallback for anything outside Config.FemaleSafeAnims
+-- (male-only conditional anims silently skip — the medical precedent).
+-- IS_PED_MALE 0x6D9F5FAA7488BA46, TaskStartScenarioInPlaceHash
+-- 0x524B54361229154F — both suite-proven call shapes.
+-- ============================================================================
+
+local performing = false
+
+local function animFor(verb, species)
+  local set = Config.CareAnims[verb]
+  if not set then return nil, 0 end
+  local name = set[species] or set.default
+  local male = Citizen.InvokeNative(0x6D9F5FAA7488BA46, PlayerPedId())
+  if not male and name and not Config.FemaleSafeAnims[name] then
+    name = Config.CareAnims.fallback
+  end
+  return name, set.duration or 5000
+end
+
+--- Play the verb's scenario with a progress bar, then fire the server
+--- request. Cancelling the bar cancels the deed — nothing is sent.
+local function performCare(animalId, verb, serverEvent)
+  if performing then return end
+  performing = true
+  CreateThread(function()
+    local name, duration = animFor(verb, (RanchHerd[animalId] or {}).view
+      and RanchHerd[animalId].view.species or nil)
+    local ped = PlayerPedId()
+    if name then
+      Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
+        duration + 500, true, false, false, false)
+    end
+    local done = sv.progress.start({
+      label = ({ feed = 'Feeding...', water = 'Watering...',
+                 brush = 'Brushing...', treat = 'Treating...' })[verb] or 'Working...',
+      duration = duration, canCancel = true,
+      disable = { 'attack', 'aim' },
+    })
+    ClearPedTasks(ped, true, true)
+    if done then
+      TriggerServerEvent(serverEvent, animalId, verb ~= 'treat' and verb or nil)
+    end
+    performing = false
+  end)
+end
+
 local function openTend(animalId)
   local rec = RanchHerd[animalId]
   if not rec or not rec.view then return end
@@ -71,9 +121,9 @@ local function openTend(animalId)
   }, function(actionId, kind)
     if kind ~= 'context' or not actionId then return end
     if actionId == 'feed' or actionId == 'water' or actionId == 'brush' then
-      TriggerServerEvent('sovereign_ranch:server:care', animalId, actionId)
+      performCare(animalId, actionId, 'sovereign_ranch:server:care')
     elseif actionId == 'treat' then
-      TriggerServerEvent('sovereign_ranch:server:treat', animalId)
+      performCare(animalId, 'treat', 'sovereign_ranch:server:treat')
     elseif actionId == 'pen' then
       TriggerServerEvent('sovereign_ranch:server:pen', animalId)
     elseif actionId == 'rename' then

@@ -64,6 +64,27 @@ Config.CareCooldownMinutes = { feed = 30, water = 20, brush = 45 }
 Config.CareRestore         = { feed = 40, water = 40, brush = 50 }
 Config.CareRange           = 4.0
 
+-- Care animations (docs/animations-reference.md — scenario TYPES verified
+-- in the rdr3_discoveries dumps; judged live via /sr_anim + ledger gate
+-- VIII, swap losers here without touching code). Per-verb: species keys
+-- override `default`; `duration` drives both the scenario and the
+-- sv.progress bar; anything not in FemaleSafe falls back to `fallback`
+-- on female peds (male-only anims silently skip — medical's precedent).
+Config.CareAnims = {
+  fallback = 'WORLD_HUMAN_CROUCH_INSPECT',   -- game-proven (herbs/realestate)
+  feed  = { duration = 5000, default = 'WORLD_HUMAN_FEEDBAG_PUTDOWN',
+            chicken = 'WORLD_HUMAN_FEED_CHICKEN', pig = 'WORLD_HUMAN_FEED_PIGS' },
+  water = { duration = 5000, default = 'WORLD_PLAYER_CHORES_BUCKET_POUR_LOW' },
+  brush = { duration = 6000, default = 'WORLD_HUMAN_HORSE_TEND_BRUSH_LINK' }, -- ⚠ paired candidate: gate VIII rules on it
+  treat = { duration = 4000, default = 'WORLD_HUMAN_CROUCH_INSPECT' },
+}
+Config.FemaleSafeAnims = {   -- carry FEMALE_A conditional anims in the dumps
+  WORLD_HUMAN_FEED_CHICKEN = true,
+  WORLD_HUMAN_FEEDBAG_PICKUP = true,
+  WORLD_HUMAN_FEEDBAG_PUTDOWN = true,
+  WORLD_HUMAN_CROUCH_INSPECT = true,
+}
+
 -- Feed can require an item once sovereign_crafting/shops supply one; Phase 1
 -- default is free-with-cooldown so the care loop doesn't dead-end on an
 -- unobtainable item. Medicine IS an item from day one (sql/items.sql).

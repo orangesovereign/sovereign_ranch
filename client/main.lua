@@ -20,6 +20,25 @@ RegisterNetEvent('sovereign_ranch:client:notify', function(payload)
 end)
 
 -- ============================================================================
+-- Dev animation preview (/sr_anim — Debug-gated server-side). Plays a
+-- scenario TYPE via the herbs-proven native; 'stop' clears. Candidates are
+-- judged here before any care verb ships one (docs/animations-reference.md).
+-- ============================================================================
+
+RegisterNetEvent('sovereign_ranch:client:devAnim', function(name, durationMs)
+  local ped = PlayerPedId()
+  if name == 'stop' then
+    ClearPedTasks(ped, true, true)
+    return
+  end
+  -- TaskStartScenarioInPlaceHash — sovereign_herbs' live-proven call shape.
+  Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
+    tonumber(durationMs) or 6000, true, false, false, false)
+  print(('[sovereign_ranch] /sr_anim playing %s for %dms — nothing visible = the type did not resolve')
+    :format(name, tonumber(durationMs) or 6000))
+end)
+
+-- ============================================================================
 -- Probe assist (server/spawns.lua). A freshly created RDR3 ped is UNDRESSED
 -- and can render INVISIBLE until a variation is applied — every ped this
 -- resource ever spawns must be dressed (Wilbur ruling 2026-08-13; the
