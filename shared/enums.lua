@@ -101,24 +101,32 @@ Enums.Err = {
   INTERNAL       = 'ERR_INTERNAL',
 }
 
--- Player-facing names for the items this resource creates. Keep in step
--- with sql/items.sql — that file is the inventory's truth, this is just
--- what our own menus and cards call them.
+-- Display names for the EXISTING county items the ranch trades in. This
+-- resource creates no items of its own (ruling 2026-08-14); these labels
+-- mirror the catalogue so our menus read the same as the satchel.
 ItemLabels = {
-  ranch_milk      = 'Milk',
-  ranch_goat_milk = "Goat's Milk",
-  ranch_egg       = 'Eggs',
-  ranch_wool      = 'Wool',
-  ranch_manure    = 'Manure',
-  ranch_beef      = 'Beef',
-  ranch_pork      = 'Pork',
-  ranch_mutton    = 'Mutton',
-  ranch_poultry   = 'Poultry',
-  ranch_hide      = 'Hide',
-  ranch_tallow    = 'Tallow',
-  ranch_feathers  = 'Feathers',
-  ranch_feed      = 'Feed',
-  ranch_medicine  = 'Livestock Medicine',
+  milk                = 'Milk',
+  eggs                = 'Eggs',
+  wool                = 'Wool',
+  fertilizer          = 'Fertilizer',
+  beef                = 'Beef',
+  pork                = 'Pork',
+  Mutton              = 'Mutton',
+  bird                = 'Bird Meat',
+  cows                = 'Cow Pelt',
+  bulls               = 'Bull Pelt',
+  boars               = 'Boar Pelt',
+  rams                = 'Ram Pelt',
+  goats               = 'Goat Pelt',
+  cowh                = 'Cow Horn',
+  bullhorn            = 'Bull Horn',
+  ramhorn             = 'Ram Horn',
+  Fat                 = 'Animal Fat',
+  porkfat             = 'Pig Fat',
+  chickenf            = 'Chicken Feather',
+  cockf               = 'Rooster Feather',
+  consumable_haycube  = 'Haycube',
+  consumable_medicine = 'Medicine',
 }
 
 function ItemLabel(item)

@@ -140,10 +140,11 @@ Config.FemaleSafeAnims = {
 -- Filling a FEED trough (and scattering for chickens) can cost a feed item
 -- once sovereign_crafting/shops supply one. Off by default so the care loop
 -- doesn't dead-end on an unobtainable item; water is always free (your own
--- well). Medicine IS an item from day one (sql/items.sql).
+-- well). Both names below are existing county items.
+-- Existing county items (ruling 2026-08-14 — the ranch invents nothing).
 Config.RequireFeedItem = false
-Config.FeedItem        = 'ranch_feed'
-Config.MedicineItem    = 'ranch_medicine'
+Config.FeedItem        = 'consumable_haycube'   -- Haycube
+Config.MedicineItem    = 'consumable_medicine'  -- Medicine (no vet-specific item exists)
 
 -- Sickness ladder (design §6.2): any need below `threshold` for
 -- `sickAfterMinutes` → sick (production halts). Still neglected past
@@ -200,7 +201,7 @@ Config.Production = {
   -- Manure: piles accumulate where livestock stand. Shovelled for fertiliser.
   manure = {
     enabled        = true,
-    item           = 'ranch_manure',
+    item           = 'fertilizer',   -- the county's existing Farming item
     perAnimalHours = 6,     -- one pile per animal per this many simulated hours
     maxPerRanch    = 12,    -- piles stop accruing past this
     yield          = { 1, 2 },

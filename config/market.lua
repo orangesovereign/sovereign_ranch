@@ -56,19 +56,31 @@ Config.Market = {
     promptLabel = 'Sell to the Exporter',
     -- Export pays a premium over the on-ranch buyer for meat only.
     rate     = 1.35,
-    items    = { 'ranch_pork', 'ranch_beef', 'ranch_mutton', 'ranch_poultry' },
+    items    = { 'pork', 'beef', 'Mutton', 'bird' },
   },
 }
 
 -- Base prices the EXPORT buyer works from (per unit, before `rate`). The
 -- on-ranch buyer pays the per-species `sell` values in config/animals.lua;
 -- these cover butcher outputs, which no species "produces".
+-- All keys are EXISTING county items (ruling 2026-08-14) — case-sensitive.
 Config.MeatPrices = {
-  ranch_pork     = Config.dollars(1.10),
-  ranch_beef     = Config.dollars(1.30),
-  ranch_mutton   = Config.dollars(1.00),
-  ranch_poultry  = Config.dollars(0.70),
-  ranch_hide     = Config.dollars(0.80),
-  ranch_tallow   = Config.dollars(0.40),
-  ranch_feathers = Config.dollars(0.20),
+  pork     = Config.dollars(1.10),
+  beef     = Config.dollars(1.30),
+  Mutton   = Config.dollars(1.00),
+  bird     = Config.dollars(0.70),
+  -- Hides, horns and fat: sold at the ranch counter rather than exported,
+  -- but priced here so one table covers every butcher output.
+  cows     = Config.dollars(0.80),
+  bulls    = Config.dollars(0.90),
+  boars    = Config.dollars(0.70),
+  rams     = Config.dollars(0.70),
+  goats    = Config.dollars(0.60),
+  cowh     = Config.dollars(0.35),
+  bullhorn = Config.dollars(0.45),
+  ramhorn  = Config.dollars(0.35),
+  Fat      = Config.dollars(0.40),
+  porkfat  = Config.dollars(0.40),
+  chickenf = Config.dollars(0.20),
+  cockf    = Config.dollars(0.25),
 }

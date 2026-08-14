@@ -8,6 +8,15 @@
   rdr3_discoveries in Phase 1 before the first spawn — the lib rule. Needs,
   growth, products and yields are Phase 1–3 numbers; they live here from day
   one so the shape is settled, but nothing reads them until those phases.
+
+  ⚠️ EVERY `item` NAME HERE IS AN EXISTING COUNTY ITEM [Wilbur ruling
+  2026-08-14: use what the database already has before inventing anything].
+  Verified against the county catalogue (1,014 items) — the ranch invents
+  NO items at all, which is what lets sovereign_crafting recipes that
+  already consume `beef`, `milk`, `eggs` and `wool` work with ranch output
+  the day it ships. Names are case-sensitive as stored: `Mutton`, `Fat`.
+  A `bySex` entry picks the right variant where the county stocks one per
+  sex (cow/bull pelt and horn, chicken/rooster feather).
 ]]
 
 Config.Animals = {
@@ -40,12 +49,14 @@ Config.Animals = {
     -- `verb` is the player-facing word; `sell` is the per-unit price the
     -- on-ranch buyer pays. `butcher`: what a carcass yields, scaled by
     -- life stage (Config.Production.stageYield).
-    produce = { item = 'ranch_milk', minutes = 90, femaleOnly = true,
+    produce = { item = 'milk', minutes = 90, femaleOnly = true,
                 yield = { 1, 2 }, verb = 'Milk', sell = Config.dollars(1.20) },
     butcher = {
-      { item = 'ranch_beef',  min = 3, max = 6 },
-      { item = 'ranch_hide',  min = 1, max = 2 },
-      { item = 'ranch_tallow', min = 1, max = 2 },
+      { item = 'beef', min = 3, max = 6 },
+      -- The county stocks a pelt and a horn per sex; use the right one.
+      { bySex = { f = 'cows', m = 'bulls' }, min = 1, max = 2 },
+      { bySex = { f = 'cowh', m = 'bullhorn' }, min = 1, max = 2 },
+      { item = 'Fat', min = 1, max = 2 },
     },
   },
   pig = {
@@ -64,9 +75,9 @@ Config.Animals = {
     breeding = { gestationMinutes = 480, chance = 0.7, cooldownMinutes = 240 },
     produce = nil,   -- pigs ARE the value chain: no timer, all carcass
     butcher = {
-      { item = 'ranch_pork',   min = 4, max = 8 },
-      { item = 'ranch_hide',   min = 1, max = 1 },
-      { item = 'ranch_tallow', min = 1, max = 3 },
+      { item = 'pork',    min = 4, max = 8 },
+      { item = 'boars',   min = 1, max = 1 },
+      { item = 'porkfat', min = 1, max = 3 },
     },
   },
   sheep = {
@@ -83,12 +94,13 @@ Config.Animals = {
     needs   = { hungerPerHour = 8, thirstPerHour = 8 },
     growth  = { growMinutes = 1500, stages = { young = 0, prime = 500, adult = 1000, old = 1250 } },
     breeding = { gestationMinutes = 600, chance = 0.65, cooldownMinutes = 300 },
-    produce = { item = 'ranch_wool', minutes = 240, femaleOnly = false,
+    produce = { item = 'wool', minutes = 240, femaleOnly = false,
                 yield = { 2, 4 }, verb = 'Shear', sell = Config.dollars(0.90) },
     butcher = {
-      { item = 'ranch_mutton', min = 2, max = 5 },
-      { item = 'ranch_wool',   min = 1, max = 3 },
-      { item = 'ranch_hide',   min = 1, max = 1 },
+      { item = 'Mutton',  min = 2, max = 5 },   -- capital M in the county catalogue
+      { item = 'wool',    min = 1, max = 3 },
+      { item = 'rams',    min = 1, max = 1 },   -- Ram Pelt is the only sheep pelt stocked
+      { item = 'ramhorn', min = 1, max = 2 },
     },
   },
   goat = {
@@ -105,11 +117,14 @@ Config.Animals = {
     needs   = { hungerPerHour = 9, thirstPerHour = 9 },
     growth  = { growMinutes = 1200, stages = { young = 0, prime = 400, adult = 800, old = 1000 } },
     breeding = { gestationMinutes = 480, chance = 0.65, cooldownMinutes = 300 },
-    produce = { item = 'ranch_goat_milk', minutes = 120, femaleOnly = true,
+    -- The county stocks one `milk`, so goats fill the same pail. A separate
+    -- goat's milk item would be a new item for no gameplay gain.
+    produce = { item = 'milk', minutes = 120, femaleOnly = true,
                 yield = { 1, 2 }, verb = 'Milk', sell = Config.dollars(1.40) },
     butcher = {
-      { item = 'ranch_mutton', min = 2, max = 4 },
-      { item = 'ranch_hide',   min = 1, max = 1 },
+      { item = 'Mutton', min = 2, max = 4 },
+      { item = 'goats',  min = 1, max = 1 },
+      { item = 'Fat',    min = 1, max = 1 },
     },
   },
   chicken = {
@@ -131,11 +146,11 @@ Config.Animals = {
     needs   = { hungerPerHour = 6, thirstPerHour = 6 },
     growth  = { growMinutes = 600, stages = { young = 0, prime = 200, adult = 400, old = 500 } },
     breeding = { gestationMinutes = 240, chance = 0.8, cooldownMinutes = 120 },
-    produce = { item = 'ranch_egg', minutes = 60, femaleOnly = true,
+    produce = { item = 'eggs', minutes = 60, femaleOnly = true,
                 yield = { 1, 3 }, verb = 'Gather Eggs', sell = Config.dollars(0.35) },
     butcher = {
-      { item = 'ranch_poultry',  min = 1, max = 2 },
-      { item = 'ranch_feathers', min = 1, max = 3 },
+      { item = 'bird', min = 1, max = 2 },      -- Bird Meat
+      { bySex = { f = 'chickenf', m = 'cockf' }, min = 1, max = 3 },
     },
     -- Birds are also sold live at the ranch, not driven to market.
     sellLive = Config.dollars(4.50),

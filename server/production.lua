@@ -190,9 +190,12 @@ function Production.butcher(src, animalId)
 
   local granted = {}
   for _, row in ipairs(table_) do
+    -- The county stocks some parts per sex (cow vs bull pelt, hen vs
+    -- rooster feather); hand over the one that matches the animal.
+    local item = row.item or (row.bySex and row.bySex[a.sex])
     local count = math.floor(math.random(row.min, row.max) * scale + 0.5)
-    if count > 0 and Bridge.AddItem(src, row.item, count) then
-      granted[#granted + 1] = { item = row.item, count = count }
+    if item and count > 0 and Bridge.AddItem(src, item, count) then
+      granted[#granted + 1] = { item = item, count = count }
     end
   end
 

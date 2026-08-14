@@ -185,10 +185,9 @@
     interaction with a server-rolled yield, and every cent of every sale lands in the
     <b>ranch business account</b>, never a wallet.
     <br><br>
-    <b>Deploy:</b> whole <code>sovereign_ranch</code> folder + <b>re-import
-    <code>sql/items.sql</code></b> (eleven new items; the file upserts, so re-running is safe),
-    then a <b>FULL server restart</b> — vorp_inventory reads item definitions once at start, and
-    without that every grant in this phase fails silently.
+    <b>Deploy:</b> whole <code>sovereign_ranch</code> folder, <code>restart sovereign_ranch</code>.
+    <b>No SQL import, no server restart</b> — the ranch invents no items; every good it handles is
+    already in the county catalogue.
     <b>Set <code>Config.Debug = true</code></b> for the <code>/sr_*</code> levers.
     <br><br>
     <b>Two surveys are needed</b>, both survey-gated exactly like the Phase 1 dealer — nothing
@@ -235,14 +234,14 @@
 // who: 'a' in-game · 'b' F8/server console · 'c' restart involved. gate:true = blocker.
 const LEDGER = [
   { n:'I', title:'Redeploy & the New Items', tag:'items seed · boot',
-    why:"Phase 2 adds eleven items to the inventory catalogue. vorp_inventory reads item definitions ONCE at start, so a resource restart is not enough — the whole server has to come up again or every grant in this phase silently fails.",
+    why:"Phase 2 adds NO items. Everything the ranch produces, butchers and sells is already in the county catalogue (ruling 2026-08-14), which is what lets crafting recipes that already consume beef, milk, eggs and wool work with ranch output on day one. These rows just confirm the names in config match the catalogue exactly — item names are case-sensitive, and a mismatch fails silently at grant time.",
     items:[
       { id:'B1', who:'b', gate:true,
-        t:"Re-import <code>sql/items.sql</code> (it is idempotent — it upserts), deploy the folder, and RESTART THE SERVER.",
-        x:"<b>Expect:</b> a clean boot ending in <code>sovereign_ranch up</code>, no SQL errors on the import." },
+        t:"Deploy the folder and <code>restart sovereign_ranch</code>. <b>No SQL import and no server restart are needed this phase</b> — the ranch creates no items.",
+        x:"<b>Expect:</b> a clean boot ending in <code>sovereign_ranch up</code>." },
       { id:'B2', who:'a', gate:true,
-        t:"Admin-give yourself one of each new item: <code>ranch_milk</code>, <code>ranch_egg</code>, <code>ranch_wool</code>, <code>ranch_manure</code>, <code>ranch_beef</code>, <code>ranch_pork</code>, <code>ranch_mutton</code>, <code>ranch_poultry</code>, <code>ranch_hide</code>, <code>ranch_tallow</code>, <code>ranch_feathers</code>.",
-        x:"<b>Expect:</b> every one exists with a proper label and description. A MISSING ITEM error on any of them means the seed did not import, and every collection row below will fail — fix it here." },
+        t:"Admin-give yourself one of each item the ranch now trades in — all EXISTING county items: <code>milk</code>, <code>eggs</code>, <code>wool</code>, <code>fertilizer</code>, <code>beef</code>, <code>pork</code>, <code>Mutton</code>, <code>bird</code>, <code>cows</code>, <code>bulls</code>, <code>boars</code>, <code>rams</code>, <code>goats</code>, <code>Fat</code>, <code>porkfat</code>, <code>chickenf</code>, <code>cockf</code>, <code>consumable_medicine</code>.",
+        x:"<b>Expect:</b> every one already exists in the catalogue. <b>Watch the capitals</b> — <code>Mutton</code> and <code>Fat</code> are stored capitalised and item names are case-sensitive; a MISSING ITEM on either means the config name and the catalogue disagree, which would break butchering. Report any that fail." },
   ]},
 
   { n:'II', title:'Readiness — Production is Earned', tag:'the core rule of the phase',

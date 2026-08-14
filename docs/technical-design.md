@@ -231,7 +231,7 @@ A ranch is **hot** when ≥1 member is on duty. Only hot ranches tick. Within a 
 Per hot ranch, one pass over its live animals (in-memory cache, write-behind):
 
 1. **Needs decay:** hunger/thirst (and groom for cows/bulls) decay by per-species config points. Feed/water/brush actions restore (server-validated prompt completions with per-animal cooldowns).
-2. **Sickness ladder:** any need below `SickThreshold` for `SickAfterMinutes` → `sick` (production halts, visual cue). Still neglected past `CriticalAfterMinutes` → `critical` (health drains). Health 0 → `dead` (row kept for the log, ped despawned, slot freed). Treatment: Foreman+ uses `ranch_medicine` item → back to `healthy`, needs reset to modest values.
+2. **Sickness ladder:** any need below `SickThreshold` for `SickAfterMinutes` → `sick` (production halts, visual cue). Still neglected past `CriticalAfterMinutes` → `critical` (health drains). Health 0 → `dead` (row kept for the log, ped despawned, slot freed). Treatment: Foreman+ uses the county's `consumable_medicine` item → back to `healthy`, needs reset to modest values.
 3. **Growth:** needs above `GrowThreshold` → `sim_minutes += tick`, `scale` interpolates 0.5 → 1.0 across `GrowMinutes` (per species). Life stage derives from `sim_minutes`: young → prime → adult → old (per-species bands; drives market pricing §8.3).
 4. **Pregnancy:** breeding action (Foreman+, requires healthy m+f pair of species, cooldowns both sides) sets `pregnant_until = sim_minutes + GestationMinutes` with `BreedChance`. Tick past threshold → new row (baby, random sex, scale 0.5) if species cap allows; else birth holds until a slot frees.
 5. **Production progress:** §7.
@@ -253,8 +253,8 @@ Per hot ranch, one pass over its live animals (in-memory cache, write-behind):
 
 - **Readiness (passive):** while needs ≥ `ProduceThreshold` and `healthy`, `product_progress` accrues per tick; at `ProduceMinutes` (per species) → `product_ready = 1` (visual cue: text3d tag / slight glow via config).
 - **Collection (active):** `sv.interact` hold-prompt on the animal (milk cow/goat, gather eggs, shear sheep) → server validates (member, grade 0+, ready, distance, per-animal cooldown) → animation + **sovereign_ui minigame** (config per action: `SkillCheck` milking, `HoldSteady` shearing, none for eggs) → server grants items via vorp_inventory and resets progress. Minigame result modulates yield within config bounds only.
-- **Products (items, consumed by sovereign_crafting):** `ranch_milk`, `ranch_goat_milk`, `ranch_egg`, `ranch_wool`, `ranch_manure` (shovel prompt at manure piles), plus butcher outputs.
-- **Butchering (Rancher-only decision):** butcher station prompt → carcass yield table per species/life-stage (`ranch_pork`, `ranch_beef`, hides, feathers...). Pig slaughter is the pork pipeline feeding player-market trade and the export ped.
+- **Products — EXISTING COUNTY ITEMS ONLY [Wilbur ruling 2026-08-14]:** the ranch invents no items. `milk`, `eggs`, `wool`, `fertilizer` (shovelled from manure piles), plus butcher outputs, are all already in the catalogue of 1,014 items. That is the point: sovereign_crafting recipes that already consume `beef`, `milk`, `eggs` and `wool` work with ranch output the day it ships, and the ranch joins the county economy instead of running a parallel one. Item names are **case-sensitive** as stored (`Mutton`, `Fat`).
+- **Butchering (Rancher-only decision):** butcher station prompt → carcass yield table per species/life-stage — `beef`/`pork`/`Mutton`/`bird`, the matching pelt and horn (`bySex` where the county stocks one per sex: cow/bull, hen/rooster), and fat. Pig slaughter is the pork pipeline feeding player-market trade and the export ped.
 
 ---
 
