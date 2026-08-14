@@ -154,30 +154,44 @@ local function nearDealer()
   return (dx * dx + dy * dy + dz * dz) <= (4.0 * 4.0)
 end
 
-CreateThread(function()
+--- The Tend prompt EXISTS only while an animal is in range. Keeping an
+--- idle prompt registered — even disabled, even invisible — contests its
+--- control against every other INPUT_ENTER prompt on screen and can
+--- suppress them outright (live findings 2026-08-13: first it ghosted
+--- greyed on the dealer, then, hidden, it still swallowed the dealer's
+--- prompt). Create on approach, delete on leave: sv.interact's delete()
+--- is a real native unregister, so nothing is left to contend.
+
+local function ensurePrompt(label)
+  if prompt then
+    prompt:setLabel(label)
+    return
+  end
   prompt = sv.interact.prompt({
     key = 'INPUT_ENTER',
-    label = 'Tend',
+    label = label,
     mode = 'hold', holdTime = 800,
-    enabled = false,
     onComplete = function()
       if nearId then openTend(nearId) end
     end,
   })
-  -- Disabled is not gone: a native prompt left merely disabled renders
-  -- GREYED OUT, everywhere, forever (live finding on the dealer ped).
-  -- Visibility must toggle with enablement.
-  prompt:setVisible(false)
+end
 
+local function dropPrompt()
+  if prompt then
+    prompt:delete()
+    prompt = nil
+  end
+end
+
+CreateThread(function()
   while true do
     local id, ped = nearestAnimal(3.0)
     if id and not nearDealer() then
       if id ~= nearId then
         nearId = id
-        prompt:setLabel(tendLabel(RanchHerd[id]))
       end
-      prompt:enable(true)
-      prompt:setVisible(true)
+      ensurePrompt(tendLabel(RanchHerd[id]))
 
       -- Status text over the animal while close — one loop, only when near.
       local shown = 0
@@ -198,11 +212,8 @@ CreateThread(function()
         Wait(0)
       end
     else
-      if nearId then
-        nearId = nil
-        prompt:enable(false)
-        prompt:setVisible(false)
-      end
+      nearId = nil
+      dropPrompt()
       Wait(500)
     end
   end
