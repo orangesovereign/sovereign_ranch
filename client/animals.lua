@@ -47,8 +47,81 @@ end
 local function wanderHere(ped)
   local c = GetEntityCoords(ped)
   ClearPedTasks(ped, true, true)
+  SetPedMoveRateOverride(ped, 1.0)   -- drop any keep-up boost
   TaskWanderInArea(ped, c.x, c.y, c.z, 12.0, 1.0, 1.0, 0)
 end
+
+-- ============================================================================
+-- Following & pace-matching (Wilbur ruling 2026-08-13: a led animal makes
+-- every effort to match its leader's gait). Natives verified in RDR3:
+--   GET_ENTITY_SPEED            0xFB6BA510A533DF81 (Entity) → float
+--   IS_PED_ON_MOUNT             0x460BC76A0E10655E (Ped) → BOOL
+--   GET_MOUNT                   0xE7E11B8DCBED1058 (Ped) → Ped
+--   SET_PED_MOVE_RATE_OVERRIDE  0x085BF80FA50A39D1 (Ped, float)
+-- The follow task is re-issued only when the band or the follow TARGET
+-- changes (mounting swaps the target from the player to the horse), so
+-- there is no per-frame re-tasking and no stutter.
+-- ============================================================================
+
+local leading = {}   -- animalId -> true while THIS client is leading it
+
+local function bandFor(speed)
+  local bands = Config.FollowPace.bands
+  for _, b in ipairs(bands) do
+    if speed <= b.upTo then return b end
+  end
+  return bands[#bands]
+end
+
+local function applyFollow(ped, target, band)
+  -- 14 params in RDR3: (ped, entity, offX, offY, offZ, movementSpeed,
+  -- timeout, stoppingRange, persistFollowing, p9, walkOnly, p11, p12, p13)
+  TaskFollowToOffsetOfEntity(ped, target, 0.0, -band.distance, 0.0,
+    band.move, -1, band.stopRange, true, false, band.walkOnly, false, false, false)
+  SetPedMoveRateOverride(ped, band.rate or 1.0)
+end
+
+--- Start leading an animal (drive-home purchase; Phase 4 wrangling reuses
+--- this). The pace thread takes it from here.
+function RanchLead(animalId, ped)
+  leading[animalId] = true
+  local me = PlayerPedId()
+  local target = IsPedOnMount(me) and GetMount(me) or me
+  applyFollow(ped, (target ~= 0) and target or me, Config.FollowPace.bands[1])
+end
+
+--- Stop leading (settled home, penned, broke loose).
+function RanchStopLeading(animalId)
+  leading[animalId] = nil
+end
+
+CreateThread(function()
+  local lastBand, lastTarget
+  while true do
+    local any = next(leading) ~= nil
+    if not any then
+      lastBand, lastTarget = nil, nil
+      Wait(1000)
+    else
+      local me = PlayerPedId()
+      local mounted = IsPedOnMount(me)
+      local target = mounted and GetMount(me) or me
+      if not target or target == 0 then target = me end
+
+      -- Pace off the thing actually moving: the horse when mounted.
+      local band = bandFor(GetEntitySpeed(target))
+
+      if band.id ~= lastBand or target ~= lastTarget then
+        lastBand, lastTarget = band.id, target
+        for animalId in pairs(leading) do
+          local ped = RanchEntity(animalId)
+          if ped then applyFollow(ped, target, band) end
+        end
+      end
+      Wait(Config.FollowPace.sampleMs or 400)
+    end
+  end
+end)
 
 -- ============================================================================
 -- Spawn orders (server → this steward)
@@ -83,9 +156,7 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
     Entity(ped).state:set('sov_animal', order.animalId, true)
 
     if order.mode == 'transit' then
-      -- Walk-only follow behind the buyer (drive-home). 14 params in RDR3.
-      TaskFollowToOffsetOfEntity(ped, PlayerPedId(), 0.0, -2.0, 0.0,
-        1.0, -1, 2.5, true, false, true, false, false, false)
+      RanchLead(order.animalId, ped)   -- pace-matching follow (see above)
     else
       wanderHere(ped)
     end
@@ -97,7 +168,9 @@ end)
 
 --- Transit animal crossed the home boundary: follow → wander.
 RegisterNetEvent('sovereign_ranch:client:settle', function(animalId)
-  local rec = RanchHerd[tonumber(animalId)]
+  animalId = tonumber(animalId)
+  RanchStopLeading(animalId)
+  local rec = RanchHerd[animalId]
   if not rec or not rec.netId then return end
   if not NetworkDoesEntityExistWithNetworkId(rec.netId) then return end
   local ped = NetworkGetEntityFromNetworkId(rec.netId)
@@ -127,7 +200,9 @@ RegisterNetEvent('sovereign_ranch:client:animals', function(views)
 end)
 
 RegisterNetEvent('sovereign_ranch:client:despawn', function(animalId)
-  local rec = RanchHerd[tonumber(animalId)]
+  animalId = tonumber(animalId)
+  RanchStopLeading(animalId)   -- penned/removed mid-drive: stop pacing it
+  local rec = RanchHerd[animalId]
   if rec then rec.netId = nil end
 end)
 

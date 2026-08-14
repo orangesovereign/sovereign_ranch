@@ -104,6 +104,33 @@ Config.Sickness = {
 }
 
 -- ============================================================================
+-- Following & pace (drive-home now; Phase 4 wrangling and cattle drives use
+-- the same machinery). Led animals MATCH THE LEADER'S GAIT [Wilbur ruling
+-- 2026-08-13] — a trotting horse must not simply leave the herd behind.
+--
+-- The leader's speed (the MOUNT's when mounted, else the player's) is
+-- sampled and mapped to a band; the follow task is re-issued only when the
+-- band changes, so there is no per-frame re-tasking stutter.
+--   move     1.0 walk · 2.0 run · 3.0 sprint (task movementSpeed)
+--   rate     SetPedMoveRateOverride — how hard the animal may push past its
+--            natural pace to keep up. Modest by design: high values make
+--            the legs skate. Set every rate to 1.0 to disable the boost.
+--   distance how far behind the leader it aims to sit, in metres
+-- Physical truth: a full gallop still outruns cattle even boosted. They
+-- string out and close the gap when you ease off — which is what a real
+-- drive looks like.
+-- ============================================================================
+Config.FollowPace = {
+  sampleMs = 400,
+  bands = {
+    { id = 'walk',   upTo = 2.0,   move = 1.0, walkOnly = true,  rate = 1.00, distance = 2.5, stopRange = 2.0 },
+    { id = 'trot',   upTo = 4.5,   move = 2.0, walkOnly = false, rate = 1.05, distance = 3.0, stopRange = 2.5 },
+    { id = 'run',    upTo = 7.5,   move = 3.0, walkOnly = false, rate = 1.15, distance = 3.5, stopRange = 3.0 },
+    { id = 'gallop', upTo = 999.0, move = 3.0, walkOnly = false, rate = 1.30, distance = 4.0, stopRange = 3.5 },
+  },
+}
+
+-- ============================================================================
 -- Admin & debug
 -- ============================================================================
 Config.AdminGroups = { admin = true, superadmin = true }  -- users.group / characters.group
