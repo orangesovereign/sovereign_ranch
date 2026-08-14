@@ -9,6 +9,13 @@
   kind; an onResourceStop delete keeps it clean.
 ]]
 
+-- Money formatter. Declared FIRST because a `local function` is only
+-- visible below its own definition — sitting further down the file, every
+-- use above it resolved as a nil global and threw at runtime.
+local function fmtDollars(cents)
+  return ('$%.2f'):format((tonumber(cents) or 0) / 100)
+end
+
 -- ============================================================================
 -- Herd Book (/herdbook) — list, then per-animal context.
 -- ============================================================================
@@ -361,10 +368,6 @@ end, false)
 
 local dealerPed = nil
 local dealerPrompt = nil
-
-local function fmtDollars(cents)
-  return ('$%.2f'):format((tonumber(cents) or 0) / 100)
-end
 
 local function openDealer(data)
   local items = {}
