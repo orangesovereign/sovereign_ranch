@@ -148,7 +148,14 @@ end, false)
 -- ============================================================================
 
 local function isDev(src)
-  return Config.Debug and isStaff(src)
+  if not isStaff(src) then return false end
+  if not Config.Debug then
+    -- The B3 lesson, applied to the levers: a staff member gets an honest
+    -- refusal, never silence (silence reads as a broken command).
+    reply(src, 'dev levers are off — set Config.Debug = true in config/config.lua and restart')
+    return false
+  end
+  return true
 end
 
 --- The Phase 0 build-ruling probe (server/spawns.lua). Needs a live player
