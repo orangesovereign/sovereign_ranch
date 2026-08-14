@@ -21,6 +21,7 @@ Locales['en'] = {
   animal_brushed    = 'Brushed down.',
   animal_treated    = 'The medicine takes. Keep an eye on it.',
   animal_released   = 'Led out to pasture.',
+  animal_released_far = 'Turned out at the pasture — %d metres %s of you.',
   release_failed    = 'It would not settle there — back in the barn. Try from open ground.',
   release_offsite   = 'You must be standing on the ranch to let stock out.',
   animal_penned     = 'Sent to the barn.',

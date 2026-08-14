@@ -116,16 +116,30 @@ RegisterCommand('ranchadmin', function(src, args)
     reply(src, ok and 'fired' or ('failed: ' .. tostring(res)))
 
   elseif sub == 'points' and args[2] then
-    -- Which anchors does config/ranches.lua map for this ranch?
+    -- Which anchors does config/ranches.lua map, and how far apart are
+    -- they? A pasture on the far side of the property is a legitimate
+    -- survey but makes released stock look missing — show the numbers.
     local r = findRanch(args[2])
     local ident = r and r.ident or tostring(args[2]):lower()
     local points = Ranches.pointsOf(ident)
     local names = {}
     for name in pairs(points) do names[#names + 1] = name end
     table.sort(names)
-    reply(src, #names > 0
-      and (ident .. ' mapped points: ' .. table.concat(names, ', '))
-      or (ident .. ': no mapped points — release falls back beside the releaser'))
+    if #names == 0 then
+      return reply(src, ident .. ': no mapped points — release falls back beside the releaser')
+    end
+    local me = src ~= 0 and GetPlayerPed(src) or nil
+    local c = me and me ~= 0 and GetEntityCoords(me) or nil
+    for _, name in ipairs(names) do
+      local p = points[name]
+      local line = ('  %-11s %.1f %.1f %.1f'):format(name, p.x, p.y, p.z)
+      if p.radius then line = line .. (' · zone %.0fm'):format(p.radius) end
+      if c then
+        local dx, dy = p.x - c.x, p.y - c.y
+        line = line .. (' · %.0fm from you'):format(math.sqrt(dx * dx + dy * dy))
+      end
+      reply(src, line)
+    end
 
   elseif sub == 'bizinit' and args[2] then
     -- Repair lever: open the bank business account for an ADMIN-ASSIGNED
@@ -204,6 +218,34 @@ RegisterCommand('sr_anim', function(src, args)
   end
   TriggerClientEvent('sovereign_ranch:client:devAnim', src, name,
     tonumber(args[2]) or 6000)
+end, false)
+
+--- Where is every spawned animal, relative to me? The answer to "my stock
+--- has vanished" — which is usually "it is at the pasture anchor, which is
+--- further away than you think".
+RegisterCommand('sr_where', function(src)
+  if not isDev(src) then return end
+  local charid = src ~= 0 and Bridge.GetCharId(src) or nil
+  local m = charid and Members.get(charid)
+  if not m then return reply(src, 'you are not on a ranch crew') end
+  local ped = GetPlayerPed(src)
+  local c = ped and ped ~= 0 and GetEntityCoords(ped) or nil
+
+  local n = 0
+  for _, a in ipairs(Animals.herdOf(m.ranch_id)) do
+    local pos = Spawns.positionOf(a)
+    local live = Spawns.entityOf(a.id) ~= nil
+    local where = 'penned'
+    if pos and c then
+      local dx, dy = pos.x - c.x, pos.y - c.y
+      where = ('%.0fm away at %.1f %.1f %.1f'):format(
+        math.sqrt(dx * dx + dy * dy), pos.x, pos.y, pos.z)
+    end
+    reply(src, ('  #%d %s (%s) — %s%s'):format(
+      a.id, a.name or a.species, a.state, where, live and ' · PED LIVE' or ''))
+    n = n + 1
+  end
+  if n == 0 then reply(src, 'no animals on the books') end
 end, false)
 
 --- Survey helper: prints where you stand, ready to paste into a config

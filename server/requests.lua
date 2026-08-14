@@ -147,7 +147,12 @@ RegisterNetEvent('sovereign_ranch:server:release', function(animalId)
   if limited(src, 'penrelease', 1000) then return end
   local ok, err = Animals.release(src, animalId)
   if ok then
-    Notify.card(src, 'Ranch', T('animal_released'))
+    -- Far-off anchor: say so, or it reads as a failed spawn.
+    if type(err) == 'table' and err.dist and err.dist > 15 then
+      Notify.card(src, 'Ranch', T('animal_released_far', err.dist, err.dir))
+    else
+      Notify.card(src, 'Ranch', T('animal_released'))
+    end
   elseif err == Err.INTERNAL then
     Notify.toast(src, 'Ranch', T('release_failed'), 'warn')
   elseif err == Err.BAD_ARG then

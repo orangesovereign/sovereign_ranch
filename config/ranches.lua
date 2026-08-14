@@ -62,7 +62,10 @@ Config.Ranches = {
     coop       = { x = -1584.94, y = -1392.92, z = 82.00, h = 62.36 },    -- structure: Phase 2 egg point
     -- Open ground. ⚠ radius values are ESTIMATES — pace the real fences
     -- and correct them; too large is what puts a bird in the rails.
-    pasture    = { x = -1500.936, y = -1422.768, z = 81.449, radius = 25.0 },
+    -- Corral centre, re-surveyed 2026-08-13 (the first reading was ~96 m
+    -- out across the property, which made released stock look like it had
+    -- never spawned at all). This one sits ~16 m from the barn.
+    pasture    = { x = -1582.00, y = -1422.33, z = 81.40, h = 255.40, radius = 12.0 },
     chickenPen = { x = -1583.32, y = -1397.58, z = 81.80, h = 164.40, radius = 5.0 },
   },
 }

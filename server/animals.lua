@@ -211,6 +211,15 @@ end
 -- trough the animals visit themselves (server/troughs.lua).
 local RESTORE_FIELD = { brush = 'groom' }
 
+-- Plain-language bearing, so "where did my cow go" is answered in the
+-- message rather than by walking the property. +y is north, +x is east.
+local DIRS = { 'east', 'north-east', 'north', 'north-west',
+               'west', 'south-west', 'south', 'south-east' }
+local function compass(dx, dy)
+  local ang = math.atan(dy, dx)
+  return DIRS[math.floor((ang / math.pi) * 4 + 8.5) % 8 + 1]
+end
+
 local function inRange(src, a)
   local ped = GetPlayerPed(src)
   if not ped or ped == 0 then return false end
@@ -416,7 +425,16 @@ function Animals.release(src, animalId)
   if not Spawns.materialise(a, src) then
     return false, Err.INTERNAL
   end
-  return true, nil
+
+  -- Report WHERE it went. An anchor can be the far side of the property
+  -- (Beecher's Hope pasture is ~96 m from its barn), and an animal you
+  -- cannot see reads exactly like an animal that never spawned.
+  local pdx, pdy = a.pos.x - c.x, a.pos.y - c.y
+  return true, {
+    dist = math.floor(math.sqrt(pdx * pdx + pdy * pdy) + 0.5),
+    dir  = compass(pdx, pdy),
+    anchored = anchor ~= nil,
+  }
 end
 
 --- Pen a spawned animal: current position saved, ped despawned, frozen.
