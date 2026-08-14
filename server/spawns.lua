@@ -235,15 +235,21 @@ local function orderSpawn(src, a, mode)
   })
 end
 
---- Materialise a spawned-state animal through the ranch steward (release,
---- future re-spawn sweeps). No steward present → freeze back to penned.
-function Spawns.materialise(a)
-  local s = steward[a.ranch_id]
+--- Materialise a spawned-state animal. `preferredSrc` is whoever asked for
+--- it — the member standing right there is the obvious one to spawn it,
+--- and using them means a release works IMMEDIATELY rather than waiting up
+--- to PresenceSeconds for the sweep to elect a steward (that gap was a
+--- silent no-op: the animal re-penned itself while the player was told it
+--- had been let out). No target at all → freeze back to penned, honestly.
+function Spawns.materialise(a, preferredSrc)
+  local s = preferredSrc or steward[a.ranch_id]
   if not s then
     a.state = State.PENNED
     Animals.touch(a)
     return false
   end
+  -- First one to act becomes steward until the sweep says otherwise.
+  if not steward[a.ranch_id] then steward[a.ranch_id] = s end
   orderSpawn(s, a, 'pasture')
   return true
 end
@@ -280,6 +286,24 @@ RegisterNetEvent('sovereign_ranch:server:spawned', function(animalId, netId)
   registry[animalId] = netId
   local a = Animals.get(animalId)
   if a then Spawns.pushAnimal(a) end
+end)
+
+--- The steward's client could not place the ped. Without this the animal
+--- sits marked SPAWNED with no entity behind it — a ghost that the herd
+--- book lists and nobody can find. Re-pen it and say so out loud.
+RegisterNetEvent('sovereign_ranch:server:spawnFailed', function(animalId, reason)
+  local src = source
+  animalId = tonumber(animalId)
+  if not animalId or orders[animalId] ~= src then return end
+  orders[animalId] = nil
+  local a = Animals.get(animalId)
+  if not a then return end
+  a.state = State.PENNED
+  Animals.touch(a)
+  Log.warn('spawn FAILED for animal #%d (%s): %s — re-penned',
+    animalId, a.species, tostring(reason))
+  Notify.toast(src, 'Ranch', T('release_failed'), 'warn')
+  Spawns.pushAnimal(a)
 end)
 
 --- Delete an animal's ped. Server-side DeleteEntity — no client required,

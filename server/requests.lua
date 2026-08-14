@@ -146,8 +146,15 @@ RegisterNetEvent('sovereign_ranch:server:release', function(animalId)
   local src = source
   if limited(src, 'penrelease', 1000) then return end
   local ok, err = Animals.release(src, animalId)
-  if ok then Notify.card(src, 'Ranch', T('animal_released'))
-  else fail(src, err) end
+  if ok then
+    Notify.card(src, 'Ranch', T('animal_released'))
+  elseif err == Err.INTERNAL then
+    Notify.toast(src, 'Ranch', T('release_failed'), 'warn')
+  elseif err == Err.BAD_ARG then
+    Notify.toast(src, 'Ranch', T('release_offsite'), 'warn')
+  else
+    fail(src, err)
+  end
 end)
 
 RegisterNetEvent('sovereign_ranch:server:pen', function(animalId)

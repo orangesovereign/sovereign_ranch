@@ -410,7 +410,12 @@ function Animals.release(src, animalId)
   end
   a.state = State.SPAWNED
   Animals.touch(a)
-  Spawns.materialise(a)
+  -- Honour the result: telling a player their animal is out when nothing
+  -- was spawned is worse than refusing (live finding 2026-08-13). The
+  -- releaser is the spawn target — they are standing right here.
+  if not Spawns.materialise(a, src) then
+    return false, Err.INTERNAL
+  end
   return true, nil
 end
 

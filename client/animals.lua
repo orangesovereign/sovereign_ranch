@@ -58,14 +58,23 @@ local function safeSpawnCoord(x, y, z)
     if found and out then return out end
     return nil
   end)
-  if ok and pos and pos.x then return pos.x, pos.y, pos.z end
+  -- SANITY GATE: a "safe coord" is only useful if it is still THIS place.
+  -- The native can report a point far away — or a zeroed vector, and 0.0 is
+  -- truthy in Lua, so an unchecked result cheerfully spawns the animal at
+  -- the map origin where nobody will ever find it. Anything further than
+  -- 10 m from what we asked for is not an answer to our question.
+  if ok and pos and pos.x then
+    local dx, dy = pos.x - x, pos.y - y
+    if (dx * dx + dy * dy) <= 100.0 then return pos.x, pos.y, pos.z end
+  end
 
   local okg, gz = pcall(function()
     local found, groundZ = GetGroundZFor_3dCoord(x, y, z + 3.0, false)
     if found then return groundZ end
     return nil
   end)
-  if okg and gz then return x, y, gz + 0.05 end
+  -- Same rule for the ground snap: a wild Z means the probe missed.
+  if okg and gz and math.abs(gz - z) <= 15.0 then return x, y, gz + 0.05 end
 
   return x, y, z
 end
@@ -188,6 +197,8 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
     if not model then
       print(('[sovereign_ranch] spawn order #%s: model %s invalid/unloaded')
         :format(tostring(order.animalId), tostring(order.model)))
+      TriggerServerEvent('sovereign_ranch:server:spawnFailed', order.animalId,
+        'model ' .. tostring(order.model) .. ' would not load')
       return
     end
 
@@ -198,9 +209,14 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
     while not DoesEntityExist(ped) and tries < 40 do Wait(50) tries = tries + 1 end
     SetModelAsNoLongerNeeded(model)
     if not DoesEntityExist(ped) then
-      print(('[sovereign_ranch] spawn order #%s: ped never materialised'):format(tostring(order.animalId)))
+      print(('[sovereign_ranch] spawn order #%s: ped never materialised at %.2f %.2f %.2f')
+        :format(tostring(order.animalId), x, y, z))
+      TriggerServerEvent('sovereign_ranch:server:spawnFailed', order.animalId,
+        'CreatePed produced nothing')
       return
     end
+    print(('[sovereign_ranch] spawned #%s (%s) at %.2f %.2f %.2f')
+      :format(tostring(order.animalId), tostring(order.species), x, y, z))
 
     SetEntityAsMissionEntity(ped, true, true)
     RanchDress(ped)
