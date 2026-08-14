@@ -30,7 +30,12 @@ CreateThread(function()
   end
   Ranches.reconcile()
 
-  Log.info('sovereign_ranch up — Phase 1 (animals & care)')
+  -- 5. Every ranch's containers must exist before a hen tries to lay.
+  for _, r in pairs(Ranches.all()) do
+    Production.registerStores(r)
+  end
+
+  Log.info('sovereign_ranch up — Phase 2 (production)')
 end)
 
 -- Daily reconcile (design §4). Boot ran one; this keeps long-lived servers

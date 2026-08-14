@@ -195,6 +195,8 @@ Config.Production = {
   requireHealthy = true,  -- sick or critical animals produce nothing
   collectRange   = 4.0,   -- metres, server-checked against the animal's ped
   collectSeconds = 5,     -- the collection action's duration
+
+  -- (Stores live in Config.Stores, below.)
   -- Life stage scales BUTCHER yields (Phase 3 sets real stages; until then
   -- everything reads as 'prime'). Product yields are unaffected.
   stageYield = { young = 0.5, prime = 1.0, adult = 1.0, old = 0.7 },
@@ -214,6 +216,37 @@ Config.Production = {
     promptRange = 2.0,
     -- Which mapped point the butcher station sits at (config/ranches.lua).
     point     = 'barn',
+  },
+}
+
+-- ============================================================================
+-- STORES — containers that belong to the PROPERTY, opened at a mapped
+-- point, shared by the whole crew.
+--
+-- The coop is the one that matters most: hens lay whether anyone is
+-- watching or not, so their eggs land in the coop basket by themselves
+-- and a hand collects them from there [Wilbur ruling 2026-08-14]. It only
+-- ever holds eggs — `only` is a whitelist, so a coop cannot be used as a
+-- second saddlebag.
+--
+-- Adding a store (a milk house, a tack room) is a config entry plus a
+-- surveyed point. `point` names a key in config/ranches.lua; `fallback`
+-- is used when that point is not surveyed yet.
+-- ============================================================================
+Config.Stores = {
+  coop = {
+    point    = 'coop',            -- the coop structure, already surveyed
+    label    = 'Coop',
+    prompt   = 'Egg Basket',
+    slots    = 20,
+    only     = { eggs = 500 },    -- item -> max units. Eggs and nothing else.
+  },
+  store = {
+    point    = 'store',           -- optional; survey it for a proper larder
+    fallback = 'barn',            -- until then, the barn serves
+    label    = 'Ranch Store',
+    prompt   = 'Ranch Store',
+    slots    = 60,
   },
 }
 

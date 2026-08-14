@@ -211,6 +211,54 @@ function Bridge.AddItem(src, itemName, amount)
   return ok
 end
 
+-- ============================================================================
+-- Custom inventories — the ranch store. Signatures verified against the
+-- installed sovereign_inventory (= vorp_inventory renamed):
+--   registerInventory{ id, name, limit (= maxSlots), shared, ... }
+--   openInventory(source, id)
+--   addItemsToCustomInventory(id, { {name=, amount=, metadata=} }, charid)
+--   getCustomInventoryItems(id, cb)
+-- ============================================================================
+
+--- Register (or re-register) a container. Idempotent — the inventory
+--- merges into any existing record, so calling it every boot is correct.
+--- `only` = { itemName = maxUnits } restricts the container to exactly
+--- those items — the inventory's `whitelistItems` flag turns the check on
+--- and `limitedItems` is the allowed set, so a coop cannot be used as a
+--- second saddlebag.
+function Bridge.RegisterStore(id, name, slots, only)
+  local ok = pcall(function()
+    exports.vorp_inventory:registerInventory({
+      id = id, name = name, limit = slots or 40,
+      acceptWeapons = false, shared = true, ignoreItemStackLimit = false,
+      whitelistItems = only ~= nil,
+      limitedItems = only or nil,
+      UsePermissions = false, UseBlackList = false,
+    })
+  end)
+  if not ok then Log.warn('RegisterStore(%s) threw — check vorp_inventory', tostring(id)) end
+  return ok
+end
+
+function Bridge.OpenStore(src, id)
+  local ok = pcall(function() exports.vorp_inventory:openInventory(src, id) end)
+  if not ok then Log.warn('OpenStore(%s) threw', tostring(id)) end
+  return ok
+end
+
+--- Put items straight into a container — no player has to be holding
+--- them. This is how hens fill the coop basket while nobody is about.
+function Bridge.StoreAddItem(id, itemName, amount)
+  local ok = pcall(function()
+    exports.vorp_inventory:addItemsToCustomInventory(id,
+      { { name = itemName, amount = amount or 1, metadata = {} } }, 0)
+  end)
+  if not ok then
+    Log.warn('StoreAddItem(%s, %s) threw', tostring(id), tostring(itemName))
+  end
+  return ok
+end
+
 --- fn(src) fires once a player has picked a character (job/wallet are live).
 function Bridge.OnCharacterSelected(fn)
   AddEventHandler('vorp:SelectedCharacter', function(source, ...)

@@ -122,6 +122,21 @@ CreateThread(function()
       action = openButcher
     end
 
+    -- Every configured store: the coop basket, the larder, whatever else
+    -- a property maps. Each uses its own point, or its fallback.
+    for key, cfg in pairs(Config.Stores) do
+      local at, sd2 = pointNear(pc, cfg.point)
+      if not at and cfg.fallback then at, sd2 = pointNear(pc, cfg.fallback) end
+      if at and sd2 and sd2 <= 9.0 and (not bestD2 or sd2 < bestD2) then
+        best, bestD2 = 'store:' .. key, sd2
+        label = cfg.prompt or cfg.label or 'Store'
+        local storeKey = key
+        action = function()
+          TriggerServerEvent('sovereign_ranch:server:openStore', storeKey)
+        end
+      end
+    end
+
     local buyerPoint = (Config.Market.produce or {}).point
     local buyer, bd2 = buyerPoint and pointNear(pc, buyerPoint)
     if buyer and bd2 and bd2 <= 9.0 and (not bestD2 or bd2 < bestD2) then

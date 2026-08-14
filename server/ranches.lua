@@ -122,6 +122,8 @@ function Ranches.activate(ident, charid)
     Log.error('activate %s: owner seat failed: %s', ident, tostring(err))
   end
 
+  Production.registerStores(r)   -- coop basket and larder from day one
+
   Events.ranchActivated({ ident = ident, ownerCharid = owner })
   Log.info('ranch ACTIVATED: %s (owner %d, account %s)', ident, owner, tostring(r.biz_key))
   Log.discord('lifecycle', 'Ranch activated',

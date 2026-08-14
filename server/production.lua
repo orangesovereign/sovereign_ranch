@@ -42,10 +42,86 @@ function Production.tick(a, spec, dt)
   a.product_progress = (a.product_progress or 0) + (dt / 60)
   if a.product_progress >= (p.minutes or 60) then
     a.product_progress = 0
+
+    -- Auto-layers (hens) fill their store on their own; there is no
+    -- "ready" state to collect, because nobody hand-collects an egg from
+    -- under a bird that already laid it in the nest. A hand takes them
+    -- out of the coop basket instead.
+    if p.autoStore then
+      local count = math.random(p.yield[1], p.yield[2])
+      if Production.deposit(a.ranch_id, p.autoStore, p.item, count) then
+        local ranch = Ranches.get(a.ranch_id)
+        Events.productCollected({ ident = ranch and ranch.ident, animalId = a.id,
+                                  item = p.item, count = count })
+      end
+      return false   -- nothing became "ready"; the store just grew
+    end
+
     a.product_ready = true
     return true
   end
   return false
+end
+
+-- ============================================================================
+-- Stores — property containers (the coop basket, the ranch larder)
+-- ============================================================================
+
+--- Container id. Stable across restarts AND ownership changes: a store
+--- belongs to the property, like every mapped point.
+function Production.storeId(ranchId, key)
+  return ('ranch_%s_%d'):format(tostring(key), tonumber(ranchId))
+end
+
+--- Where a store is opened, or nil when neither its point nor its
+--- fallback has been surveyed.
+function Production.storePoint(ident, key)
+  local cfg = Config.Stores[key]
+  if not cfg then return nil end
+  local points = Ranches.pointsOf(ident)
+  return points[cfg.point] or (cfg.fallback and points[cfg.fallback]) or nil
+end
+
+--- Register every store of a ranch. Idempotent — the inventory merges
+--- into any existing record, so calling it each boot is correct.
+function Production.registerStores(ranch)
+  for key, cfg in pairs(Config.Stores) do
+    Bridge.RegisterStore(Production.storeId(ranch.id, key),
+      ('%s — %s'):format(cfg.label or key, ranch.ident),
+      cfg.slots or 40, cfg.only)
+  end
+end
+
+--- Drop items into a store with no player involved — this is how hens
+--- fill the coop basket while nobody is about.
+function Production.deposit(ranchId, key, item, count)
+  return Bridge.StoreAddItem(Production.storeId(ranchId, key), item, count)
+end
+
+--- Open a store for a member standing at it. Returns (ok, err).
+function Production.openStore(src, key)
+  local cfg = Config.Stores[key]
+  if not cfg then return false, Err.BAD_ARG end
+  local charid = Bridge.GetCharId(src)
+  if not charid then return false, Err.NOT_MEMBER end
+  local m = Members.get(charid)
+  if not m then return false, Err.NOT_MEMBER end
+  local ok, err = Members.can(charid, 'care', m.ranch_id)
+  if not ok then return false, err end
+  local ranch = Ranches.get(m.ranch_id)
+  if not ranch then return false, Err.NO_RANCH end
+
+  local at = Production.storePoint(ranch.ident, key)
+  if not at then return false, Err.BAD_ARG end
+  local ped = GetPlayerPed(src)
+  if not ped or ped == 0 then return false, Err.INTERNAL end
+  local c = GetEntityCoords(ped)
+  local dx, dy = c.x - at.x, c.y - at.y
+  if (dx * dx + dy * dy) > 25.0 then return false, Err.BAD_ARG end
+
+  Production.registerStores(ranch)   -- cheap; guarantees it exists
+  Bridge.OpenStore(src, Production.storeId(ranch.id, key))
+  return true, nil
 end
 
 --- Is there something to take off this animal right now?

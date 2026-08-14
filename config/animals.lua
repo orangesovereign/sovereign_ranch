@@ -146,7 +146,13 @@ Config.Animals = {
     needs   = { hungerPerHour = 6, thirstPerHour = 6 },
     growth  = { growMinutes = 600, stages = { young = 0, prime = 200, adult = 400, old = 500 } },
     breeding = { gestationMinutes = 240, chance = 0.8, cooldownMinutes = 120 },
+    -- `autoStore`: hens lay whether anyone is there or not, so eggs go
+    -- STRAIGHT into the coop basket (Config.Stores.coop, egg-only) and a
+    -- hand collects them from there [Wilbur ruling 2026-08-14]. No tend
+    -- menu entry — you do not squeeze a chicken. Everything else still
+    -- needs a pair of hands.
     produce = { item = 'eggs', minutes = 60, femaleOnly = true,
+                autoStore = 'coop',
                 yield = { 1, 3 }, verb = 'Gather Eggs', sell = Config.dollars(0.35) },
     butcher = {
       { item = 'bird', min = 1, max = 2 },      -- Bird Meat

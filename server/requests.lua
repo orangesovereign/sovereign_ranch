@@ -146,6 +146,13 @@ RegisterNetEvent('sovereign_ranch:server:collect', function(animalId)
   end
 end)
 
+RegisterNetEvent('sovereign_ranch:server:openStore', function(key)
+  local src = source
+  if limited(src, 'store', 1000) then return end
+  local ok, err = Production.openStore(src, tostring(key or 'store'))
+  if not ok then fail(src, err) end
+end)
+
 RegisterNetEvent('sovereign_ranch:server:shovel', function(index)
   local src = source
   if limited(src, 'shovel', 1500) then return end
