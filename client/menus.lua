@@ -18,11 +18,14 @@ local function openHerdBook(data)
   for _, v in ipairs(data.animals or {}) do
     local state = v.state == 'penned' and 'Barn' or (v.state:gsub('^%l', string.upper))
     local badge = v.sick ~= 'healthy' and (' · %s'):format(v.sick:upper()) or ''
+    -- The id is shown so the /sr_* levers are usable without guesswork,
+    -- and so "the sick one" can be named precisely when reporting a bug.
     items[#items + 1] = {
       id = tostring(v.id),
-      label = ('%s — %s'):format(v.name or 'Unnamed', v.label),
-      description = ('%s · Hunger %d · Thirst %d%s'):format(
-        state, v.hunger or 0, v.thirst or 0, badge),
+      label = ('#%d  %s — %s'):format(v.id, v.name or 'Unnamed', v.label),
+      description = ('%s · Hunger %d · Thirst %d%s%s'):format(
+        state, v.hunger or 0, v.thirst or 0, badge,
+        v.ready and ' · READY' or ''),
     }
   end
   if #items == 0 then

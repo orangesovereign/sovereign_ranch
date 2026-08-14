@@ -216,6 +216,31 @@ function Animals.stageOf(a)
   return best
 end
 
+--- The animal whose ped is nearest this player, within `range` metres.
+--- The answer to "which cow am I standing next to" — dev levers use it so
+--- nobody has to hunt for an id to test with.
+function Animals.nearestTo(src, range)
+  local ped = GetPlayerPed(src)
+  if not ped or ped == 0 then return nil end
+  local charid = Bridge.GetCharId(src)
+  local m = charid and Members.get(charid)
+  if not m then return nil end
+
+  local c = GetEntityCoords(ped)
+  local maxD2 = (range or 12.0) ^ 2
+  local best, bestD2 = nil, nil
+  for _, a in ipairs(Animals.herdOf(m.ranch_id)) do
+    local entity = Spawns.entityOf(a.id)
+    if entity then
+      local ac = GetEntityCoords(entity)
+      local dx, dy, dz = c.x - ac.x, c.y - ac.y, c.z - ac.z
+      local d2 = dx * dx + dy * dy + dz * dz
+      if d2 <= maxD2 and (not bestD2 or d2 < bestD2) then best, bestD2 = a, d2 end
+    end
+  end
+  return best
+end
+
 --- Is this player close enough to the animal's ped to work on it? Server
 --- reads the entity itself — the client never states its own distance.
 function Animals.withinReach(src, a, range)

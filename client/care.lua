@@ -284,9 +284,13 @@ CreateThread(function()
         local v = rec and rec.view
         if v then
           local tag = v.name or v.label or ''
+          if v.ready then tag = tag .. ' *' end
           if v.sick and v.sick ~= 'healthy' then
             tag = tag .. (' [%s]'):format(v.sick:upper())
           end
+          -- On a test server the id floats with the animal, so the /sr_*
+          -- levers never need a lookup.
+          if Config.Debug then tag = ('#%d %s'):format(id, tag) end
           sv.interact.text3d({ x = c.x, y = c.y, z = c.z + 1.2 }, tag, { maxDistance = 6.0 })
         end
         shown = shown + 1

@@ -262,27 +262,48 @@ RegisterCommand('sr_here', function(src)
     :format(c.x, c.y, c.z, h))
 end, false)
 
+--- Resolve the animal a dev lever should act on. Pass an id, or pass
+--- `near` (or nothing at all) to mean "the one I am standing beside" —
+--- hunting for an id to run a test is friction nobody needs. Returns
+--- (animal, remainingArgs) so callers read their values uniformly.
+local function targetAnimal(src, args)
+  local first = tostring(args[1] or ''):lower()
+  if first ~= '' and first ~= 'near' and first ~= 'n' then
+    local a = Animals.get(tonumber(first))
+    if a then
+      return a, { args[2], args[3], args[4] }
+    end
+  end
+  -- No id, or an unrecognised one: use the nearest animal and shift the
+  -- arguments along only if the first was a keyword.
+  local shift = (first == 'near' or first == 'n')
+  local rest = shift and { args[2], args[3], args[4] } or { args[1], args[2], args[3] }
+  return Animals.nearestTo(src, 12.0), rest
+end
+
 --- Force an animal's needs (ledger: neglect → sick → treat without waiting
---- an hour). /sr_needs <animalId> <hunger> <thirst> [groom]
+--- an hour). /sr_needs [id|near] <hunger> <thirst> [groom]
+--- Standing next to the cow, `/sr_needs 5 5` is enough.
 RegisterCommand('sr_needs', function(src, args)
   if not isDev(src) then return end
-  local a = Animals.get(tonumber(args[1]))
-  if not a then return reply(src, 'no such animal') end
-  a.hunger = math.max(0, math.min(100, tonumber(args[2]) or a.hunger))
-  a.thirst = math.max(0, math.min(100, tonumber(args[3]) or a.thirst))
-  if args[4] then a.groom = math.max(0, math.min(100, tonumber(args[4]) or a.groom)) end
+  local a, v = targetAnimal(src, args)
+  if not a then return reply(src, 'no animal here — stand next to one, or give an id (/sr_where lists them)') end
+  a.hunger = math.max(0, math.min(100, tonumber(v[1]) or a.hunger))
+  a.thirst = math.max(0, math.min(100, tonumber(v[2]) or a.thirst))
+  if v[3] then a.groom = math.max(0, math.min(100, tonumber(v[3]) or a.groom)) end
   Animals.touch(a)
   Spawns.pushAnimal(a)
-  reply(src, ('animal #%d needs set: hunger %d thirst %d groom %d'):format(
-    a.id, a.hunger, a.thirst, a.groom))
+  reply(src, ('#%d %s — hunger %d, thirst %d, groom %d'):format(
+    a.id, a.name or a.species, a.hunger, a.thirst, a.groom))
 end, false)
 
---- Force the sickness state. /sr_sick <animalId> <healthy|sick|critical>
+--- Force the sickness state.
+--- /sr_sick [id|near] <healthy|sick|critical>
 RegisterCommand('sr_sick', function(src, args)
   if not isDev(src) then return end
-  local a = Animals.get(tonumber(args[1]))
-  if not a then return reply(src, 'no such animal') end
-  local state = tostring(args[2] or '')
+  local a, v = targetAnimal(src, args)
+  if not a then return reply(src, 'no animal here — stand next to one, or give an id (/sr_where lists them)') end
+  local state = tostring(v[1] or '')
   if state ~= 'healthy' and state ~= 'sick' and state ~= 'critical' then
     return reply(src, 'state must be healthy | sick | critical')
   end
