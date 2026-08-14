@@ -143,6 +143,17 @@ end
 -- The proximity loop
 -- ============================================================================
 
+--- Both the Tend prompt and the dealer prompt ride INPUT_ENTER; a
+--- drive-home cow stands 4m from the dealer at purchase, so without this
+--- guard one held E would complete BOTH prompts at once.
+local function nearDealer()
+  local d = Config.Market and Config.Market.dealer
+  if not (d and d.enabled and d.surveyed) then return false end
+  local c = GetEntityCoords(PlayerPedId(), true, true)
+  local dx, dy, dz = c.x - d.coords.x, c.y - d.coords.y, c.z - d.coords.z
+  return (dx * dx + dy * dy + dz * dz) <= (4.0 * 4.0)
+end
+
 CreateThread(function()
   prompt = sv.interact.prompt({
     key = 'INPUT_ENTER',
@@ -153,15 +164,20 @@ CreateThread(function()
       if nearId then openTend(nearId) end
     end,
   })
+  -- Disabled is not gone: a native prompt left merely disabled renders
+  -- GREYED OUT, everywhere, forever (live finding on the dealer ped).
+  -- Visibility must toggle with enablement.
+  prompt:setVisible(false)
 
   while true do
     local id, ped = nearestAnimal(3.0)
-    if id then
+    if id and not nearDealer() then
       if id ~= nearId then
         nearId = id
         prompt:setLabel(tendLabel(RanchHerd[id]))
       end
       prompt:enable(true)
+      prompt:setVisible(true)
 
       -- Status text over the animal while close — one loop, only when near.
       local shown = 0
@@ -185,6 +201,7 @@ CreateThread(function()
       if nearId then
         nearId = nil
         prompt:enable(false)
+        prompt:setVisible(false)
       end
       Wait(500)
     end

@@ -12,8 +12,8 @@
 Config.Market = {
   dealer = {
     enabled  = true,
-    surveyed = false,                     -- ⚠ flip true after /sr_here survey
-    coords   = { x = -363.0, y = 780.0, z = 116.0, h = 90.0 },  -- DRAFT
+    surveyed = true,                     -- ⚠ flip true after /sr_here survey
+    coords   = { x = -279.78, y = 689.40, z = 113.40, h = 294.80 },  -- DRAFT
     -- Valentine auction foreman — verified in rdr3_discoveries peds_list
     -- (0x075398B9, 7 outfit variations; dressed via the standing two-native
     -- rule like every ped we spawn).
