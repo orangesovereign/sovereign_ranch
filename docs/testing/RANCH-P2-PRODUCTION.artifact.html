@@ -276,6 +276,17 @@ const LEDGER = [
         x:"<b>Expect:</b> ~6 s of work, then <b>Collected N × Manure</b>, and that marker is gone while the others remain." },
   ]},
 
+  { n:'III-b', title:'Moving the Herd', tag:'whole species at a time',
+    why:"Turning out twenty head one menu click at a time is data entry, not husbandry. The Herd Book can move a species in one action — and because that is the fastest way to put many animals on the ground at once, it is also the best stress test of spawning, the pen zones and the spawn cap.",
+    items:[
+      { id:'M1', who:'a', gate:true,
+        t:"Open <code>/herdbook</code> → <b>Move the Herd</b>. Turn out a whole species, watch them arrive, then bring the same species back in. Try it once standing OFF the property.",
+        x:"<b>Expect:</b> the menu offers only moves worth making — <em>Pasture all Cattle (3 in the barn)</em>, <em>Bring in all Chickens (5 afield)</em> — with live counts, and a species with nothing to move is simply absent. Turning out puts every head at that species' anchor, <b>scattered rather than stacked</b>, and reports the count. Bringing them in despawns the lot. Off the property: refused (<em>“You must be on the ranch to do that.”</em>)." },
+      { id:'M2', who:'a',
+        t:"Push it: buy enough stock that a turn-out would exceed 40 afield, then pasture everything.",
+        x:"<b>Expect:</b> it turns out what it can and SAYS how many stayed in (<em>“N head stayed in — the ranch is at its limit for animals afield.”</em>). No animal is ever reported as out while still sitting in the barn — the count and the world must agree." },
+  ]},
+
   { n:'IV', title:'The Butcher Station', tag:'barn anchor · Rancher only · final',
     why:"Butchering is the boss's decision by design (§5.2 'manage'), it is irreversible, and it is the only route to hide and tallow. It hangs off the barn point you already surveyed in Phase 1, so no new survey is needed.",
     items:[
