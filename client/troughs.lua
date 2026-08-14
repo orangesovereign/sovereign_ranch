@@ -95,29 +95,18 @@ local function doFill(t)
   if filling then return end
   filling = true
   CreateThread(function()
-    local ped = PlayerPedId()
     -- Water pours from a bucket; feed comes out of a sack. Both scenarios
-    -- are first picks from docs/animations-reference.md.
+    -- are first picks from docs/animations-reference.md, and both carry
+    -- PROPS — client/anim.lua owns getting them out of your hands again.
     local verb = (t.kind == 'water') and 'water' or 'feed'
-    local set = Config.CareAnims[verb]
-    local name = set and (set.default) or nil
-    local male = Citizen.InvokeNative(0x6D9F5FAA7488BA46, ped)
-    if not male and name and not Config.FemaleSafeAnims[name] then
-      name = Config.CareAnims.fallback
-    end
+    local name = RanchAnimFor(verb, nil)
     local duration = (Config.Troughs.fillSeconds or 4) * 1000
 
-    TaskTurnPedToFaceCoord(ped, t.x, t.y, t.z, 800)
-    Wait(300)
-    if name then
-      Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
-        duration + 500, true, false, false, false)
-    end
-    local done = sv.progress.start({
-      label = (t.kind == 'water') and 'Filling the water trough...' or 'Filling the feed trough...',
-      duration = duration, canCancel = true, disable = { 'attack', 'aim' },
+    local done = RanchScenarioAction({
+      scenario = name, duration = duration, faceCoords = t,
+      label = (t.kind == 'water') and 'Filling the water trough...'
+        or 'Filling the feed trough...',
     })
-    ClearPedTasks(ped, true, true)
     if done then
       TriggerServerEvent('sovereign_ranch:server:fillTrough', t.kind, t.x, t.y, t.z)
     end

@@ -51,6 +51,7 @@ server_scripts {
 }
 
 client_scripts {
+  'client/anim.lua',       -- the animation seam: play AND exit scenarios cleanly
   'client/main.lua',       -- boot, notify receiver, probe dress assist
   'client/animals.lua',    -- steward spawner, registry, dress rule (Phase 1)
   'client/care.lua',       -- tend prompt + status text (Phase 1)

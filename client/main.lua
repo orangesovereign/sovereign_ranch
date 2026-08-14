@@ -26,16 +26,20 @@ end)
 -- ============================================================================
 
 RegisterNetEvent('sovereign_ranch:client:devAnim', function(name, durationMs)
-  local ped = PlayerPedId()
-  if name == 'stop' then
-    ClearPedTasks(ped, true, true)
-    return
-  end
-  -- TaskStartScenarioInPlaceHash — sovereign_herbs' live-proven call shape.
-  Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
-    tonumber(durationMs) or 6000, true, false, false, false)
-  print(('[sovereign_ranch] /sr_anim playing %s for %dms — nothing visible = the type did not resolve')
-    :format(name, tonumber(durationMs) or 6000))
+  CreateThread(function()
+    if name == 'stop' then
+      RanchEndScenario(PlayerPedId())   -- proper outro: puts the prop away
+      return
+    end
+    local ms = tonumber(durationMs) or 6000
+    RanchPlayScenario(PlayerPedId(), name, ms)
+    print(('[sovereign_ranch] /sr_anim playing %s for %dms — nothing visible = the type did not resolve')
+      :format(name, ms))
+    -- Auditions clean up after themselves, so a prop scenario cannot leave
+    -- the tester holding a shovel for the rest of the session.
+    Wait(ms)
+    RanchEndScenario(PlayerPedId())
+  end)
 end)
 
 -- ============================================================================

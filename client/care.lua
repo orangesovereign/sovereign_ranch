@@ -57,17 +57,8 @@ end
 -- ============================================================================
 
 local performing = false
-
-local function animFor(verb, species)
-  local set = Config.CareAnims[verb]
-  if not set then return nil, 0 end
-  local name = set[species] or set.default
-  local male = Citizen.InvokeNative(0x6D9F5FAA7488BA46, PlayerPedId())
-  if not male and name and not Config.FemaleSafeAnims[name] then
-    name = Config.CareAnims.fallback
-  end
-  return name, set.duration or 5000
-end
+-- Scenario selection and the play/exit lifecycle live in client/anim.lua —
+-- ending a prop scenario correctly is the fiddly part and it is shared.
 
 --- Walk the hand to the animal's FLANK and settle both of them before any
 --- hands-on work (Wilbur note 2026-08-13: the brush has to actually reach
@@ -110,25 +101,17 @@ local function performCare(animalId, verb, serverEvent)
   if performing then return end
   performing = true
   CreateThread(function()
-    local name, duration = animFor(verb, (RanchHerd[animalId] or {}).view
-      and RanchHerd[animalId].view.species or nil)
-    local ped = PlayerPedId()
+    local rec = RanchHerd[animalId]
+    local name, duration = RanchAnimFor(verb, rec and rec.view and rec.view.species)
 
     -- Hands-on verbs need to be within arm's reach of the animal.
     local animalPed = RanchEntity(animalId)
     if animalPed then approachAnimal(animalId, animalPed, duration + 6000) end
 
-    if name then
-      Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
-        duration + 500, true, false, false, false)
-    end
-    local done = sv.progress.start({
-      label = ({ feed = 'Feeding...', water = 'Watering...',
-                 brush = 'Brushing...', treat = 'Treating...' })[verb] or 'Working...',
-      duration = duration, canCancel = true,
-      disable = { 'attack', 'aim' },
+    local done = RanchScenarioAction({
+      scenario = name, duration = duration,
+      label = ({ brush = 'Brushing...', treat = 'Treating...' })[verb] or 'Working...',
     })
-    ClearPedTasks(ped, true, true)
     if done then
       TriggerServerEvent(serverEvent, animalId, verb ~= 'treat' and verb or nil)
     end
@@ -144,17 +127,10 @@ function performScatter()
   if performing then return end
   performing = true
   CreateThread(function()
-    local ped = PlayerPedId()
-    local set = Config.CareAnims.feed
-    local name = (set and set.chicken) or Config.CareAnims.fallback
-    local duration = (set and set.duration) or 5000
-    Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
-      duration + 500, true, false, false, false)
-    local done = sv.progress.start({
-      label = 'Scattering feed...', duration = duration,
-      canCancel = true, disable = { 'attack', 'aim' },
+    local name, duration = RanchAnimFor('feed', 'chicken')
+    local done = RanchScenarioAction({
+      scenario = name, duration = duration, label = 'Scattering feed...',
     })
-    ClearPedTasks(ped, true, true)
     if done then TriggerServerEvent('sovereign_ranch:server:scatterFeed') end
     performing = false
   end)
