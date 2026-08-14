@@ -314,8 +314,17 @@ RegisterNetEvent('sovereign_ranch:server:moveSpecies', function(species, dir)
   species = tostring(species or '')
   local out = (dir ~= 'in')
 
-  local ok, res = out and Animals.releaseSpecies(src, species)
-    or Animals.penSpecies(src, species)
+  -- Plain if/else, NOT `out and A() or B()`. That idiom truncates a
+  -- multiple-return to its first value (so `res` arrived nil and the
+  -- reporting below indexed nil), and worse, a function returning false
+  -- falls through to the `or` branch and runs the OTHER action. Both
+  -- directions were broken by it.
+  local ok, res
+  if out then
+    ok, res = Animals.releaseSpecies(src, species)
+  else
+    ok, res = Animals.penSpecies(src, species)
+  end
   if not ok then
     if res == Err.BAD_ARG then
       Notify.toast(src, 'Ranch', T('must_be_on_ranch'), 'warn')
@@ -326,6 +335,7 @@ RegisterNetEvent('sovereign_ranch:server:moveSpecies', function(species, dir)
   end
 
   local label = (Config.Animals[species] or {}).label or species
+  res = type(res) == 'table' and res or { moved = 0, blocked = 0 }
   if res.moved == 0 then
     Notify.toast(src, 'Ranch', T(out and 'none_to_pasture' or 'none_to_pen', label), 'info')
   elseif out then
