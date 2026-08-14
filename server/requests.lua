@@ -202,6 +202,58 @@ RegisterNetEvent('sovereign_ranch:server:sellBirds', function(count)
   end
 end)
 
+--- Everything the ranch manager offers, in one reply: what he pays for
+--- produce, what he charges for stock, and whether you may butcher.
+RegisterNetEvent('sovereign_ranch:server:requestManager', function()
+  local src = source
+  if limited(src, 'manager', 1000) then return end
+  if not Config.Manager.enabled then return end
+  local charid = Bridge.GetCharId(src)
+  local m = charid and Members.get(charid)
+  if not m then return fail(src, Err.NOT_MEMBER) end
+
+  local at = Ranches.managerPointFor(src)
+  if not at then return end
+  local ped = GetPlayerPed(src)
+  if not ped or ped == 0 then return end
+  local c = GetEntityCoords(ped)
+  local dx, dy = c.x - at.x, c.y - at.y
+  if (dx * dx + dy * dy) > 36.0 then return end
+
+  -- Produce he will take off you.
+  local rows = {}
+  for item, unit in pairs(Selling.producePrices()) do
+    local held = Bridge.GetItemCount(src, item)
+    if held and held > 0 then
+      rows[#rows + 1] = { item = item, label = ItemLabel(item), unit = unit, held = held }
+    end
+  end
+  table.sort(rows, function(a, b) return a.label < b.label end)
+
+  -- Stock he will order in — delivery prices, since that is all he does.
+  local stock = {}
+  for species, spec in pairs(Config.Animals) do
+    local unit = math.floor(spec.price.buy * (spec.price.delivery or 1.25)
+      * (Config.Manager.deliveryMarkup or 1.0))
+    stock[#stock + 1] = { species = species, label = spec.label,
+                          sexLabels = spec.sexLabels, unit = unit }
+  end
+  table.sort(stock, function(a, b) return a.species < b.species end)
+
+  local ranch = Ranches.get(m.ranch_id)
+  TriggerClientEvent('sovereign_ranch:client:manager', src, {
+    ident = ranch and ranch.ident,
+    grade = m.grade,
+    canButcher = m.grade >= Enums.Capability.manage,
+    canBuy = m.grade >= Enums.Capability.buy,
+    produce = rows,
+    liveBirds = (Config.Animals.chicken or {}).sellLive,
+    stock = stock,
+    maxPerPurchase = Config.Market.MaxPerPurchase or 5,
+    deliveryDelay = Config.Market.DeliveryDelayMinutes or 10,
+  })
+end)
+
 --- What a counter pays, for the menu. Config-derived, server-served.
 RegisterNetEvent('sovereign_ranch:server:requestPrices', function(kind)
   local src = source
@@ -288,22 +340,36 @@ end)
 -- Dealer
 -- ============================================================================
 
-RegisterNetEvent('sovereign_ranch:server:buy', function(species, sex, count, delivery)
+--- Buying stock. `via` names WHERE the order was placed, and the server
+--- checks the player is actually standing there: the Valentine dealer
+--- (drive-home or delivery), or the ranch manager (delivery only).
+RegisterNetEvent('sovereign_ranch:server:buy', function(species, sex, count, delivery, via)
   local src = source
   if limited(src, 'buy', 2000) then return end
+  via = (via == 'manager') and 'manager' or 'dealer'
 
-  -- Proximity to the dealer is a server-side gate, same as the realestate
-  -- land office: the buy menu only means something at the stockyard.
-  local d = Config.Market.dealer
-  if not (d.enabled and d.surveyed) then return end
   local ped = GetPlayerPed(src)
   if not ped or ped == 0 then return end
   local c = GetEntityCoords(ped)
-  local dx, dy, dz = c.x - d.coords.x, c.y - d.coords.y, c.z - d.coords.z
-  if (dx * dx + dy * dy + dz * dz) > (6.0 * 6.0) then return end
+
+  if via == 'manager' then
+    if not Config.Manager.enabled then return end
+    delivery = true   -- the manager never arranges a drive-home
+    local at = Ranches.managerPointFor(src)
+    if not at then return end
+    local dx, dy = c.x - at.x, c.y - at.y
+    if (dx * dx + dy * dy) > 36.0 then return end
+  else
+    -- Proximity to the dealer is a server-side gate, same as the realestate
+    -- land office: the buy menu only means something at the stockyard.
+    local d = Config.Market.dealer
+    if not (d.enabled and d.surveyed) then return end
+    local dx, dy, dz = c.x - d.coords.x, c.y - d.coords.y, c.z - d.coords.z
+    if (dx * dx + dy * dy + dz * dz) > (6.0 * 6.0) then return end
+  end
 
   local ok, res = Animals.buy(src, tostring(species), tostring(sex),
-    tonumber(count), delivery == true)
+    tonumber(count), delivery == true, via)
   if not ok then
     if res == Err.NOT_MEMBER or res == Err.NO_CAPABILITY or res == Err.NO_RANCH then
       Notify.toast(src, 'Ranch', T('dealer_no_ranch'), 'warn')

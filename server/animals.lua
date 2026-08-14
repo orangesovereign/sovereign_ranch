@@ -395,7 +395,9 @@ end
 -- after the delay, at a premium.
 -- ============================================================================
 
-function Animals.buy(src, species, sex, count, delivery)
+--- `via` is 'dealer' (the Valentine stockyard, drive-home or delivery) or
+--- 'manager' (the ranch manager, delivery only and possibly dearer).
+function Animals.buy(src, species, sex, count, delivery, via)
   local charid = Bridge.GetCharId(src)
   if not charid then return false, Err.NOT_MEMBER end
   local m = Members.get(charid)
@@ -418,6 +420,11 @@ function Animals.buy(src, species, sex, count, delivery)
 
   local unit = spec.price.buy
   if delivery then unit = math.floor(unit * (spec.price.delivery or 1.25)) end
+  -- Ordering through the manager is the most convenient route of all, so
+  -- it may carry a further markup on top of the delivery premium.
+  if via == 'manager' then
+    unit = math.floor(unit * (Config.Manager.deliveryMarkup or 1.0))
+  end
   local total = unit * count
 
   local idem = ('ranch:buy:%d:%d:%d'):format(ranch.id, charid, os.time())

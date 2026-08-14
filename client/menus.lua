@@ -137,7 +137,112 @@ function openButcherList(data)
 end
 
 -- ============================================================================
--- Buyer counters (produce on the ranch, export in town)
+-- THE RANCH MANAGER — one NPC, most of the business. Everything the ranch
+-- decides to hand him lands in this menu rather than in another ped.
+-- ============================================================================
+
+local function openManagerStock(data)
+  local items = {}
+  for _, s in ipairs(data.stock or {}) do
+    items[#items + 1] = {
+      id = s.species, label = s.label,
+      description = ('%s a head, delivered in ~%d min'):format(
+        fmtDollars(s.unit), data.deliveryDelay or 10),
+    }
+  end
+  exports.sovereign_ui:OpenMenu({
+    title = 'Order Livestock', eyebrow = 'Delivered to the ranch', items = items,
+  }, function(species, kind)
+    if kind ~= 'menu' or not species then return end
+    local stock
+    for _, s in ipairs(data.stock) do if s.species == species then stock = s end end
+    if not stock then return end
+
+    exports.sovereign_ui:OpenContext({
+      title = stock.label,
+      actions = {
+        { id = 'f', label = stock.sexLabels.f, description = 'Female' },
+        { id = 'm', label = stock.sexLabels.m, description = 'Male' },
+      },
+    }, function(sex, ckind)
+      if ckind ~= 'context' or not sex then return end
+      exports.sovereign_ui:OpenQuantity({
+        label = 'How many head?', value = 1, min = 1,
+        max = data.maxPerPurchase or 5, unit = 'head',
+      }, function(count, qkind)
+        if qkind ~= 'quantity' then return end
+        count = tonumber(count)
+        if not count or count < 1 then return end
+        exports.sovereign_ui:OpenConfirm({
+          title = ('Order %d × %s?'):format(count, stock.label),
+          description = ('%s, delivered to the ranch. Paid from the ranch account.')
+            :format(fmtDollars(stock.unit * count)),
+          detail = 'The manager only arranges delivery — for a drive home, see the Valentine dealer.',
+          tone = 'warning', confirmLabel = 'Place the Order',
+        }, function(confirmed)
+          if confirmed then
+            TriggerServerEvent('sovereign_ranch:server:buy', species, sex, count, true, 'manager')
+          end
+        end)
+      end)
+    end)
+  end)
+end
+
+RegisterNetEvent('sovereign_ranch:client:manager', function(data)
+  if type(data) ~= 'table' then return end
+
+  local actions = {}
+
+  if #(data.produce or {}) > 0 then
+    local total = 0
+    for _, r in ipairs(data.produce) do total = total + r.unit * r.held end
+    actions[#actions + 1] = { id = 'sell', label = 'Sell Produce',
+      description = ('%s for what you are carrying'):format(fmtDollars(total)) }
+  else
+    actions[#actions + 1] = { id = 'none', label = 'Sell Produce',
+      description = 'You are carrying nothing he wants' }
+  end
+
+  if data.liveBirds then
+    actions[#actions + 1] = { id = 'birds', label = 'Sell Live Birds',
+      description = ('%s a head'):format(fmtDollars(data.liveBirds)) }
+  end
+  if data.canBuy then
+    actions[#actions + 1] = { id = 'order', label = 'Order Livestock',
+      description = 'Delivered to the ranch, at a premium' }
+  end
+  if data.canButcher then
+    actions[#actions + 1] = { id = 'butcher', label = 'Butcher an Animal',
+      description = 'Meat, hide and tallow — it cannot be undone' }
+  end
+
+  exports.sovereign_ui:OpenContext({
+    title = 'Ranch Manager', actions = actions,
+  }, function(actionId, kind)
+    if kind ~= 'context' or not actionId then return end
+    if actionId == 'sell' then
+      TriggerServerEvent('sovereign_ranch:server:sell', 'produce')
+    elseif actionId == 'birds' then
+      exports.sovereign_ui:OpenQuantity({
+        label = 'How many birds?', value = 1, min = 1, max = 20, unit = 'head',
+      }, function(count, qkind)
+        if qkind == 'quantity' and tonumber(count) then
+          TriggerServerEvent('sovereign_ranch:server:sellBirds', tonumber(count))
+        end
+      end)
+    elseif actionId == 'order' then
+      openManagerStock(data)
+    elseif actionId == 'butcher' then
+      RanchHerdBookMode = 'butcher'
+      TriggerServerEvent('sovereign_ranch:server:requestHerd')
+    end
+  end)
+end)
+
+-- ============================================================================
+-- Buyer counters (the town exporter; the ranch's own selling is the
+-- manager's menu above)
 -- ============================================================================
 
 RegisterNetEvent('sovereign_ranch:client:prices', function(data)

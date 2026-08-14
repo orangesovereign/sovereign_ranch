@@ -12,7 +12,7 @@
 RanchManure = {}
 
 local prompt   = nil
-local target   = nil    -- { kind = 'manure'|'butcher'|'buyer', ... }
+local target   = nil    -- 'manure' | 'manager' | 'store:<key>' | 'export'
 local busy     = false
 
 RegisterNetEvent('sovereign_ranch:client:manure', function(piles)
@@ -65,13 +65,6 @@ local function doShovel(idx)
   end)
 end
 
-local function openButcher()
-  TriggerServerEvent('sovereign_ranch:server:requestHerd')
-  -- The Herd Book reply opens the list; butchering is a context action on
-  -- it (client/menus.lua), so the station only needs to summon the book.
-  RanchHerdBookMode = 'butcher'
-end
-
 local function openBuyer(kind)
   TriggerServerEvent('sovereign_ranch:server:requestPrices', kind)
 end
@@ -114,12 +107,16 @@ CreateThread(function()
       action = function() doShovel(pidx) end
     end
 
-    local station, sd2 = pointNear(pc, Config.Production.butcher.point)
-    local sRange = (Config.Production.butcher.promptRange or 2.0) + 1.0
-    if station and sd2 and sd2 <= sRange * sRange and (not bestD2 or sd2 < bestD2) then
-      best, bestD2 = 'butcher', sd2
-      label = 'Butcher Station'
-      action = openButcher
+    -- The ranch manager: one NPC, most of the business.
+    if Config.Manager.enabled then
+      local mgr, md2 = pointNear(pc, Config.Manager.point or 'manager')
+      if mgr and md2 and md2 <= 9.0 and (not bestD2 or md2 < bestD2) then
+        best, bestD2 = 'manager', md2
+        label = Config.Manager.prompt or 'Speak with the Ranch Manager'
+        action = function()
+          TriggerServerEvent('sovereign_ranch:server:requestManager')
+        end
+      end
     end
 
     -- Every configured store: the coop basket, the larder, whatever else
@@ -135,14 +132,6 @@ CreateThread(function()
           TriggerServerEvent('sovereign_ranch:server:openStore', storeKey)
         end
       end
-    end
-
-    local buyerPoint = (Config.Market.produce or {}).point
-    local buyer, bd2 = buyerPoint and pointNear(pc, buyerPoint)
-    if buyer and bd2 and bd2 <= 9.0 and (not bestD2 or bd2 < bestD2) then
-      best, bestD2 = 'buyer', bd2
-      label = Config.Market.produce.promptLabel or 'Sell Produce'
-      action = function() openBuyer('produce') end
     end
 
     local exp = Config.Market.export
@@ -192,9 +181,9 @@ CreateThread(function()
 end)
 
 -- ============================================================================
--- The produce buyer's ped. Local scenery at the ranch's mapped `buyer`
--- point (same lineage as the dealer: dressed, frozen, untargetable). No
--- point mapped, no ped — the ranch just has no counter yet.
+-- The ranch manager's ped. Local scenery at the mapped `manager` point
+-- (same lineage as the dealer: dressed, frozen, untargetable). One NPC per
+-- ranch by design — no point mapped, no manager.
 -- ============================================================================
 
 local buyerPed = nil
@@ -202,8 +191,8 @@ local buyerPed = nil
 CreateThread(function()
   while true do
     local wait = 3000
-    local cfg = Config.Market.produce
-    local p = cfg and cfg.enabled and RanchPoints[cfg.point or 'buyer']
+    local cfg = Config.Manager
+    local p = cfg and cfg.enabled and RanchPoints[cfg.point or 'manager']
     if p then
       local pc = GetEntityCoords(PlayerPedId(), true, true)
       local dx, dy = pc.x - p.x, pc.y - p.y

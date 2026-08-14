@@ -190,10 +190,11 @@
     already in the county catalogue.
     <b>Set <code>Config.Debug = true</code></b> for the <code>/sr_*</code> levers.
     <br><br>
-    <b>Two surveys are needed</b>, both survey-gated exactly like the Phase 1 dealer — nothing
-    spawns until you place it: the ranch's <code>buyer</code> point (gate V) and the town
-    <code>export</code> coords (S5). The butcher station reuses the <code>barn</code> point you
-    already surveyed.
+    <b>One NPC runs the ranch's business:</b> the <b>Ranch Manager</b> sells produce and birds,
+    orders livestock in (delivery only, at a premium) and handles butchering — so the yard never
+    fills up with peds, and anything added later joins his menu. Beecher's Hope has him surveyed
+    already. <b>One survey remains:</b> the town <code>export</code> coords (S5), survey-gated
+    exactly like the Phase 1 dealer.
     <br><br>
     <b>Two-tester rows are on the Master Duo Ledger, section RN</b> — chiefly the grade gate on
     butchering (K2 has a solo workaround). This ledger is everything one body can prove.
@@ -279,11 +280,11 @@ const LEDGER = [
     why:"Butchering is the boss's decision by design (§5.2 'manage'), it is irreversible, and it is the only route to hide and tallow. It hangs off the barn point you already surveyed in Phase 1, so no new survey is needed.",
     items:[
       { id:'K1', who:'a', gate:true,
-        t:"Walk to the barn point and hold <b>E</b> → Butcher Station. Pick an animal, read the confirm, and go through with it.",
-        x:"<b>Expect:</b> the station lists your herd; the confirm says plainly that it cannot be undone; ~12 s of work; then a card listing what you got (beef/pork/mutton + hide + tallow). The animal is gone from <code>/herdbook</code> and its species slot is free again." },
+        t:"Walk to the <b>Ranch Manager</b> and hold <b>E</b> → <b>Butcher an Animal</b>. Pick one, read the confirm, and go through with it.",
+        x:"<b>Expect:</b> he lists your herd; the confirm says plainly that it cannot be undone; ~12 s of work; then a card listing what you got (meat + the right pelt for the sex + horn + fat). The animal is gone from <code>/herdbook</code> and its species slot is free again." },
       { id:'K2', who:'a', gate:true,
-        t:"Have a grade-0 hand (or demote yourself) try the same. <i>(Two testers: this is duo row RN-3.)</i>",
-        x:"<b>Expect:</b> refused — slaughter is Rancher-only. Solo shortcut: <code>/ranchadmin hire &lt;ident&gt; &lt;charid&gt;</code> a second character of yours at grade 0 and try from it." },
+        t:"Have a grade-0 hand (or demote yourself) open the manager. <i>(Two testers: this is duo row RN-3.)</i>",
+        x:"<b>Expect:</b> the <b>Butcher</b> and <b>Order Livestock</b> entries are ABSENT from his menu for a hand — the menu is built from your grade, and the server refuses either even if the entry is forced. Selling produce still works: that is ordinary hand's work. Solo shortcut: <code>/ranchadmin hire &lt;ident&gt; &lt;charid&gt;</code> a second character of yours at grade 0." },
       { id:'K3', who:'a',
         t:"Butcher a chicken.",
         x:"<b>Expect:</b> poultry + feathers, smaller numbers. Confirms the yield table is per species, not one-size." },
@@ -293,16 +294,19 @@ const LEDGER = [
     why:"Every cent lands in the RANCH BUSINESS ACCOUNT, never a wallet: the ranch earns, and the boss draws from the ledger. These rows are the phase's acceptance criterion.",
     items:[
       { id:'S1', who:'a', gate:true,
-        t:"Survey the produce counter: stand where the buyer should be on your ranch, <code>/sr_here</code>, add <code>buyer = {...}</code> to your ranch in <code>config/ranches.lua</code>, restart, confirm with <code>/ranchadmin points</code>.",
-        x:"<b>Expect:</b> a ped is standing there, dressed and frozen, and <code>points</code> lists <code>buyer</code>. Before the survey there is simply no counter — that is by design, not a bug." },
+        t:"The <b>Ranch Manager</b> should already be standing at his surveyed point (Beecher's Hope is mapped). Confirm with <code>/ranchadmin points</code>, then walk up and hold <b>E</b>.",
+        x:"<b>Expect:</b> ONE ped for the whole yard — dressed, frozen, untargetable — and a single menu offering Sell Produce, Sell Live Birds, Order Livestock and Butcher (the last two only at the grades that may). No separate buyer or butcher peds anywhere on the property. An unmapped ranch has no manager at all, which is by design." },
+      { id:'S1b', who:'a', gate:true,
+        t:"<b>Order Livestock</b> from the manager: 1 head of anything, and read the prices against the Valentine dealer's.",
+        x:"<b>Expect:</b> delivery ONLY — no drive-home option, and the confirm says so. The price is the species delivery premium (×1.25) and the ranch account pays. The stock arrives penned after the delivery delay, exactly like a dealer delivery. This is the convenience route; driving them home from Valentine stays cheaper." },
       { id:'S2', who:'a', gate:true,
-        t:"Note the ranch balance (<code>/ranchadmin list</code>). Take eggs out of the coop basket, and with milk/eggs/wool/manure on you use the counter → <b>Sell Everything I Carry</b>. Check the balance again.",
+        t:"Note the ranch balance (<code>/ranchadmin list</code>). Take eggs out of the coop basket, and with milk/eggs/wool/manure on you use the manager → <b>Sell Produce</b>. Check the balance again.",
         x:"<b>Expect:</b> the menu shows each item's unit price and how many you carry; selling empties those items from your satchel and the ranch balance rises by exactly the total shown on the card. <b>Money must NOT appear in your wallet.</b>" },
       { id:'S3', who:'a',
-        t:"With nothing sellable on you, use the counter again.",
-        x:"<b>Expect:</b> <em>“You are carrying nothing this buyer wants.”</em> and no money moves." },
+        t:"With nothing sellable on you, open the manager again.",
+        x:"<b>Expect:</b> Sell Produce reads <em>“You are carrying nothing he wants”</em> and choosing it moves no money." },
       { id:'S4', who:'a',
-        t:"<b>Sell Live Birds</b> from the counter — pick a number larger than your flock.",
+        t:"<b>Sell Live Birds</b> from the manager — pick a number larger than your flock.",
         x:"<b>Expect:</b> it sells only as many as you actually have, pays per head into the ranch account, and those chickens leave <code>/herdbook</code>." },
       { id:'S5', who:'a', gate:true,
         t:"The exporter: survey it (<code>/sr_here</code> at the spot in town → <code>config/market.lua</code> → <code>export.coords</code>, <code>surveyed = true</code>, restart). Carry meat there and sell.",

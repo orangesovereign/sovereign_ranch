@@ -210,13 +210,34 @@ Config.Production = {
     shovelSeconds  = 6,
     sell           = Config.dollars(0.25),
   },
-  -- Butchering (Rancher only — design §5.2 'manage'). Hangs off the barn.
+  -- Butchering (Rancher only — design §5.2 'manage'). Arranged through the
+  -- ranch manager rather than a station of its own.
   butcher = {
     seconds   = 12,
-    promptRange = 2.0,
-    -- Which mapped point the butcher station sits at (config/ranches.lua).
-    point     = 'barn',
+    point     = 'manager',
   },
+}
+
+-- ============================================================================
+-- THE RANCH MANAGER — one NPC, most of the business [Wilbur ruling
+-- 2026-08-14]. Rather than scattering a butcher, a buyer and a clerk
+-- around the yard, every ranch has a single manager standing at a mapped
+-- point who handles the lot. New ranch business gets added to HIS menu,
+-- not to another ped.
+--
+-- He deals in DELIVERY only when selling you livestock: driving stock home
+-- yourself is the Valentine dealer's trade and the cattle-drive gameplay.
+-- Convenience through the manager costs the species delivery multiplier
+-- (config/animals.lua `price.delivery`), and `deliveryMarkup` on top if you
+-- want him dearer still.
+-- ============================================================================
+Config.Manager = {
+  enabled        = true,
+  point          = 'manager',        -- mapped point in config/ranches.lua
+  model          = 'a_m_m_rancher_01',  -- verified: 0x54D8BE8E, 20 variations
+  label          = 'Ranch Manager',
+  prompt         = 'Speak with the Ranch Manager',
+  deliveryMarkup = 1.0,              -- 1.0 = the species premium is enough
 }
 
 -- ============================================================================

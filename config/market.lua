@@ -35,16 +35,9 @@ Config.Market = {
   -- Stand at the spot, /sr_here, paste, flip the flag, restart.
   -- ==========================================================================
 
-  -- The produce buyer STANDS ON THE RANCH — this one is per-property, so
-  -- its position comes from config/ranches.lua (`buyer` point), not here.
-  -- Buys eggs, milk, wool, manure and live chickens at the per-species
-  -- `sell` prices. Proceeds go to the ranch business account.
-  produce = {
-    enabled     = true,
-    model       = 'u_m_m_valauctionforman_01',   -- placeholder; a farmhand suits better
-    promptLabel = 'Sell Produce',
-    point       = 'buyer',        -- mapped point name in config/ranches.lua
-  },
+  -- Selling produce on the ranch is the RANCH MANAGER's job (Config.Manager
+  -- in config/config.lua) — one NPC per property rather than a counter for
+  -- every trade. Nothing for it here.
 
   -- The EXPORT buyer takes meat in bulk at export rates — one fixed
   -- location for the county, hence coords here rather than per ranch.

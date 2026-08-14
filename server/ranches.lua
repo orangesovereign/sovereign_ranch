@@ -49,6 +49,17 @@ function Ranches.pointsOf(ident)
   return (Config.Ranches or {})[tostring(ident or ''):lower()] or {}
 end
 
+--- The ranch manager's spot for whichever ranch this player crews at, or
+--- nil. Every manager interaction is range-checked against it.
+function Ranches.managerPointFor(src)
+  local charid = Bridge.GetCharId(src)
+  local m = charid and Members.get(charid)
+  if not m then return nil end
+  local r = Ranches.get(m.ranch_id)
+  if not r then return nil end
+  return Ranches.pointsOf(r.ident)[Config.Manager.point or 'manager']
+end
+
 --- Where this species is LET OUT and roams. The pen is named per species
 --- in config/animals.lua (`pen`, optional `penAlt`), so a ranch with a
 --- separate hog pen or sheep fold is pure config — no code knows the
