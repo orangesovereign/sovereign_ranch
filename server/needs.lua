@@ -33,14 +33,58 @@ local function needsLow(a, spec)
   return false
 end
 
+--- Feed and water an animal from whatever it can reach (Wilbur ruling
+--- 2026-08-13: animals help themselves). Returns the source it is using
+--- so the client can walk it there and play the right scenario, or nil.
+local function graze(a)
+  local pos = Spawns.positionOf(a)
+  if not pos then return nil end
+  local seekAt = Config.Troughs.hungerSeekAt or 70
+
+  -- Hunger first, then thirst — a beast eats before it drinks.
+  for _, kind in ipairs({ 'feed', 'water' }) do
+    local need = (kind == 'feed') and 'hunger' or 'thirst'
+    if a[need] < seekAt then
+      local src, d2, isScatter = Troughs.sourceFor(a, kind, pos)
+      if src then
+        local eatRange = (isScatter and Config.Scatter.eatRange
+          or Config.Troughs.eatRange) or 3.0
+        if d2 <= eatRange * eatRange then
+          -- At the trough: eat.
+          if Troughs.consume(src.key, isScatter) then
+            local gain = (isScatter and Config.Scatter.restorePerTick
+              or Config.Troughs.restorePerTick) or 20
+            a[need] = math.min(100, a[need] + gain)
+            return { kind = kind, x = src.x, y = src.y, z = src.z, eating = true }
+          end
+        else
+          -- Within draw range but not there yet: head for it.
+          return { kind = kind, x = src.x, y = src.y, z = src.z, eating = false }
+        end
+      end
+    end
+  end
+  return nil
+end
+
 local function tickAnimal(a, spec, dt)
-  -- 1. Needs decay (per-hour config → per-tick).
+  -- 0. Eat/drink from anything in reach FIRST — a fed animal does not decay
+  --    that need this tick.
+  local feeding = graze(a)
+
+  -- 1. Needs decay (per-hour config → per-tick), skipping what was just
+  --    topped up at a trough.
   local perTick = dt / 3600
-  a.hunger = math.max(0, a.hunger - (spec.needs.hungerPerHour or 8) * perTick)
-  a.thirst = math.max(0, a.thirst - (spec.needs.thirstPerHour or 8) * perTick)
+  if not (feeding and feeding.eating and feeding.kind == 'feed') then
+    a.hunger = math.max(0, a.hunger - (spec.needs.hungerPerHour or 8) * perTick)
+  end
+  if not (feeding and feeding.eating and feeding.kind == 'water') then
+    a.thirst = math.max(0, a.thirst - (spec.needs.thirstPerHour or 8) * perTick)
+  end
   if spec.needsGroom then
     a.groom = math.max(0, a.groom - (spec.needs.groomPerHour or 4) * perTick)
   end
+  a.feeding = feeding
 
   -- 2. Sickness ladder.
   local now = os.time()
@@ -87,7 +131,10 @@ CreateThread(function()
           end
         end
       end
-      if #changed > 0 then Spawns.pushAnimals(ranchId, changed) end
+      if #changed > 0 then
+        Spawns.pushAnimals(ranchId, changed)
+        Spawns.pushFeeding(ranchId, changed)   -- walk them to their trough
+      end
     end
   end
 end)

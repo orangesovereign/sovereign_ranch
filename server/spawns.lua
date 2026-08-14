@@ -86,6 +86,48 @@ function Spawns.pushAnimal(a)
   end
 end
 
+--- Where an animal actually IS right now (its ped's coords when spawned,
+--- else its stored position). The SIM asks this to decide what it can reach.
+function Spawns.positionOf(a)
+  local entity = Spawns.entityOf(a.id)
+  if entity then
+    local c = GetEntityCoords(entity)
+    return { x = c.x, y = c.y, z = c.z }
+  end
+  return a.pos
+end
+
+--- Tell present clients which animals are heading to (or standing at) a
+--- trough, so they can task the walk and play the eating scenario. Only
+--- animals whose feeding state CHANGED are worth sending.
+function Spawns.pushFeeding(ranchId, list)
+  local out = {}
+  for _, a in ipairs(list) do
+    local f = a.feeding
+    local sig = f and ('%s:%d'):format(f.kind, f.eating and 1 or 0) or 'none'
+    if a.feedSig ~= sig then
+      a.feedSig = sig
+      out[#out + 1] = { id = a.id, feeding = f }
+    end
+  end
+  if #out == 0 then return end
+  for _, src in ipairs(membersPresentSrcs(ranchId)) do
+    TriggerClientEvent('sovereign_ranch:client:feeding', src, out)
+  end
+end
+
+--- Push the live trough/scatter list so clients can render and reason
+--- about them (fill prompts read the map's props directly; this is state).
+function Spawns.pushTroughs(ranchId)
+  local payload = {
+    troughs = Troughs.activeFor(ranchId),
+    scatters = Troughs.scattersFor(ranchId),
+  }
+  for _, src in ipairs(membersPresentSrcs(ranchId)) do
+    TriggerClientEvent('sovereign_ranch:client:troughs', src, payload)
+  end
+end
+
 --- Batch push after a SIM tick.
 function Spawns.pushAnimals(ranchId, list)
   local views = {}

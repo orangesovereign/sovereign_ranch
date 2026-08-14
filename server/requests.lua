@@ -85,6 +85,49 @@ RegisterNetEvent('sovereign_ranch:server:treat', function(animalId)
 end)
 
 -- ============================================================================
+-- Troughs & scatter (the real feeding path — Wilbur ruling 2026-08-13)
+-- ============================================================================
+
+RegisterNetEvent('sovereign_ranch:server:fillTrough', function(kind, x, y, z)
+  local src = source
+  if limited(src, 'fill', 2000) then return end
+  local ok, err = Troughs.fill(src, tostring(kind), x, y, z)
+  if ok then
+    Notify.card(src, 'Ranch', kind == 'water' and T('trough_watered') or T('trough_filled'))
+  elseif err == Err.BUSY then
+    Notify.toast(src, 'Ranch', T('trough_full'), 'info')
+  elseif err == Err.BAD_ARG then
+    Notify.toast(src, 'Ranch', T('care_too_far'), 'warn')
+  else
+    fail(src, err)
+  end
+end)
+
+RegisterNetEvent('sovereign_ranch:server:scatterFeed', function()
+  local src = source
+  if limited(src, 'scatter', 2000) then return end
+  local ok, err = Troughs.scatter(src)
+  if ok then
+    Notify.card(src, 'Ranch', T('feed_scattered'))
+  else
+    fail(src, err)
+  end
+end)
+
+--- Trough state on demand (a client arriving at a ranch mid-session).
+RegisterNetEvent('sovereign_ranch:server:requestTroughs', function()
+  local src = source
+  if limited(src, 'troughs', 1000) then return end
+  local charid = Bridge.GetCharId(src)
+  local m = charid and Members.get(charid)
+  if not m then return end
+  TriggerClientEvent('sovereign_ranch:client:troughs', src, {
+    troughs = Troughs.activeFor(m.ranch_id),
+    scatters = Troughs.scattersFor(m.ranch_id),
+  })
+end)
+
+-- ============================================================================
 -- Herd Book actions
 -- ============================================================================
 

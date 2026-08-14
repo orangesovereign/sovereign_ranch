@@ -207,7 +207,9 @@ end
 -- per-animal cooldown, item where required.
 -- ============================================================================
 
-local RESTORE_FIELD = { feed = 'hunger', water = 'thirst', brush = 'groom' }
+-- Only hands-on verbs live here now: feeding and watering happen at a
+-- trough the animals visit themselves (server/troughs.lua).
+local RESTORE_FIELD = { brush = 'groom' }
 
 local function inRange(src, a)
   local ped = GetPlayerPed(src)
@@ -244,10 +246,6 @@ function Animals.care(src, animalId, verb)
   local cd = (Config.CareCooldownMinutes[verb] or 30) * 60
   if stamps[verb] and (os.time() - stamps[verb]) < cd then
     return false, Err.COOLDOWN
-  end
-
-  if verb == 'feed' and Config.RequireFeedItem then
-    if not Bridge.SubItem(src, Config.FeedItem, 1) then return false, Err.BAD_ARG end
   end
 
   stamps[verb] = os.time()

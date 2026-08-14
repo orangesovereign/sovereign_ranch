@@ -86,6 +86,25 @@ local function wanderHere(ped)
   wanderAt(ped, nil)
 end
 
+--- Put an animal back to its idle business after a care action or a meal.
+--- Exposed because care.lua holds animals still while brushing them.
+function RanchResumeIdle(animalId)
+  local ped = RanchEntity(animalId)
+  if not ped then return end
+  local rec = RanchHerd[tonumber(animalId)]
+  wanderAt(ped, rec and rec.home)
+end
+
+--- The species/sex scenario for an activity ('graze'|'eat'|'drink'), or nil
+--- when the game ships none for that species (sheep — see config/animals).
+function RanchScenario(species, sex, activity)
+  local spec = Config.Animals[species]
+  local set = spec and spec.scenarios
+  if not set then return nil end
+  local bySex = set[sex] or set.any
+  return bySex and bySex[activity] or nil
+end
+
 -- ============================================================================
 -- Following & pace-matching (Wilbur ruling 2026-08-13: a led animal makes
 -- every effort to match its leader's gait). Natives verified in RDR3:
@@ -301,6 +320,47 @@ RegisterNetEvent('sovereign_ranch:client:animal', function(view) absorb(view) en
 RegisterNetEvent('sovereign_ranch:client:animals', function(views)
   if type(views) ~= 'table' then return end
   for _, v in ipairs(views) do absorb(v) end
+end)
+
+-- ============================================================================
+-- Feeding behaviour (server decides WHO is hungry and WHAT they can reach;
+-- this walks them there and plays the right species scenario). This is also
+-- most of the answer to "animals are stupid" — an animal with somewhere to
+-- be stops looking like a wind-up toy.
+--   TASK_GO_TO_COORD_ANY_MEANS 0x5BC448CB78FA3E88 (9 params)
+--   TASK_START_SCENARIO_AT_POSITION 0x4D1F61FC34AF3CD1 (12 params)
+-- ============================================================================
+
+RegisterNetEvent('sovereign_ranch:client:feeding', function(list)
+  if type(list) ~= 'table' then return end
+  for _, row in ipairs(list) do
+    local animalId = tonumber(row.id)
+    local rec = RanchHerd[animalId]
+    local ped = RanchEntity(animalId)
+    if ped and rec and not leading[animalId] then
+      local f = row.feeding
+      if not f then
+        -- Done eating (full, or the trough ran dry): back to idle.
+        RanchResumeIdle(animalId)
+      elseif f.eating then
+        -- At the source: play the species' eat/drink scenario facing it.
+        local v = rec.view or {}
+        local activity = (f.kind == 'water') and 'drink' or 'eat'
+        local scenario = RanchScenario(v.species, v.sex, activity)
+        ClearPedTasks(ped, true, true)
+        if scenario then
+          Citizen.InvokeNative(0x4D1F61FC34AF3CD1, ped, GetHashKey(scenario),
+            f.x, f.y, f.z, 0.0, -1, false, false, '', 0.0, false)
+        else
+          TaskTurnPedToFaceCoord(ped, f.x, f.y, f.z, 1000)
+        end
+      else
+        -- Heading for it. Walk — livestock amble to a trough, they do not
+        -- sprint — and let the navmesh route around the fences.
+        TaskGoToCoordAnyMeans(ped, f.x, f.y, f.z, 1.0, 0, false, 786603, 0.0)
+      end
+    end
+  end
 end)
 
 RegisterNetEvent('sovereign_ranch:client:despawn', function(animalId)

@@ -69,6 +69,38 @@ local function animFor(verb, species)
   return name, set.duration or 5000
 end
 
+--- Walk the hand to the animal's FLANK and settle both of them before any
+--- hands-on work (Wilbur note 2026-08-13: the brush has to actually reach
+--- the animal). The animal is held still for the duration, so it cannot
+--- amble off mid-stroke. Natives verified in RDR3:
+---   GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS 0x1899F328B0E12848
+---   TASK_GO_STRAIGHT_TO_COORD              0xD76B57B44F1E6F8B (9 params)
+---   TASK_TURN_PED_TO_FACE_ENTITY           0x5AD23D40115353AC (6 params, not 3)
+---   TASK_STAND_STILL                       0x919BE13EED931959
+local function approachAnimal(animalPed, holdMs)
+  local ped = PlayerPedId()
+
+  -- Hold the animal where it stands, then take up position at its left
+  -- flank — brushing a moving cow from two metres away looks like mime.
+  TaskStandStill(animalPed, holdMs)
+
+  local side = GetOffsetFromEntityInWorldCoords(animalPed, -1.1, 0.0, 0.0)
+  TaskGoStraightToCoord(ped, side.x, side.y, side.z, 1.0, 3000,
+    GetEntityHeading(animalPed) + 90.0, 0.2, 0)
+
+  local waited = 0
+  while waited < 3000 do
+    local c = GetEntityCoords(ped, true, true)
+    local dx, dy = c.x - side.x, c.y - side.y
+    if (dx * dx + dy * dy) < 0.6 then break end
+    Wait(100); waited = waited + 100
+  end
+
+  ClearPedTasks(ped, true, true)
+  TaskTurnPedToFaceEntity(ped, animalPed, 700, 0.0, 0.0, 0.0)
+  Wait(500)
+end
+
 --- Play the verb's scenario with a progress bar, then fire the server
 --- request. Cancelling the bar cancels the deed — nothing is sent.
 local function performCare(animalId, verb, serverEvent)
@@ -78,6 +110,11 @@ local function performCare(animalId, verb, serverEvent)
     local name, duration = animFor(verb, (RanchHerd[animalId] or {}).view
       and RanchHerd[animalId].view.species or nil)
     local ped = PlayerPedId()
+
+    -- Hands-on verbs need to be within arm's reach of the animal.
+    local animalPed = RanchEntity(animalId)
+    if animalPed then approachAnimal(animalPed, duration + 3000) end
+
     if name then
       Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
         duration + 500, true, false, false, false)
@@ -92,6 +129,30 @@ local function performCare(animalId, verb, serverEvent)
     if done then
       TriggerServerEvent(serverEvent, animalId, verb ~= 'treat' and verb or nil)
     end
+    -- Let the animal get back to its business either way.
+    RanchResumeIdle(animalId)
+    performing = false
+  end)
+end
+
+--- Scatter chicken feed at your feet: the grain-throwing scenario, then the
+--- server decides whether it counted. The birds converge on the spot.
+function performScatter()
+  if performing then return end
+  performing = true
+  CreateThread(function()
+    local ped = PlayerPedId()
+    local set = Config.CareAnims.feed
+    local name = (set and set.chicken) or Config.CareAnims.fallback
+    local duration = (set and set.duration) or 5000
+    Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
+      duration + 500, true, false, false, false)
+    local done = sv.progress.start({
+      label = 'Scattering feed...', duration = duration,
+      canCancel = true, disable = { 'attack', 'aim' },
+    })
+    ClearPedTasks(ped, true, true)
+    if done then TriggerServerEvent('sovereign_ranch:server:scatterFeed') end
     performing = false
   end)
 end
@@ -101,10 +162,15 @@ local function openTend(animalId)
   if not rec or not rec.view then return end
   local v = rec.view
 
-  local actions = {
-    { id = 'feed',  label = 'Feed',  description = ('Hunger %d/100'):format(v.hunger or 0) },
-    { id = 'water', label = 'Water', description = ('Thirst %d/100'):format(v.thirst or 0) },
-  }
+  -- Feeding and watering are NOT here: livestock help themselves from a
+  -- filled trough, and chickens eat feed scattered on the ground (Wilbur
+  -- ruling 2026-08-13). What is left is genuinely hands-on work.
+  local actions = {}
+  local scattered = Config.Animals[v.species] and Config.Animals[v.species].scattered
+  if scattered then
+    actions[#actions + 1] = { id = 'scatter', label = 'Scatter Feed',
+      description = 'Throw feed on the ground here — the birds will come' }
+  end
   if v.groom ~= nil then
     actions[#actions + 1] = { id = 'brush', label = 'Brush', description = ('Coat %d/100'):format(v.groom) }
   end
@@ -116,12 +182,15 @@ local function openTend(animalId)
   actions[#actions + 1] = { id = 'pen', label = 'Send to Barn', description = 'Despawn to safety' }
 
   exports.sovereign_ui:OpenContext({
-    title = v.name or v.label or 'Animal',
+    title = ('%s — Hunger %d · Thirst %d'):format(
+      v.name or v.label or 'Animal', v.hunger or 0, v.thirst or 0),
     actions = actions,
   }, function(actionId, kind)
     if kind ~= 'context' or not actionId then return end
-    if actionId == 'feed' or actionId == 'water' or actionId == 'brush' then
+    if actionId == 'brush' then
       performCare(animalId, actionId, 'sovereign_ranch:server:care')
+    elseif actionId == 'scatter' then
+      performScatter()
     elseif actionId == 'treat' then
       performCare(animalId, 'treat', 'sovereign_ranch:server:treat')
     elseif actionId == 'pen' then

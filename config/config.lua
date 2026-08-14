@@ -58,11 +58,51 @@ Config.TickSeconds      = 60   -- SIM cadence for hot ranches (design §6.2)
 Config.PresenceSeconds  = 10   -- member-position sweep (server-side; drives hot/cold + steward)
 Config.FlushMinutes     = 5    -- write-behind full flush cadence
 
--- Care verbs: server-validated cooldowns (per animal, minutes) and restore
--- amounts (points). Range is metres from player to animal, server-checked.
-Config.CareCooldownMinutes = { feed = 30, water = 20, brush = 45 }
-Config.CareRestore         = { feed = 40, water = 40, brush = 50 }
+-- Care verbs that are still HANDS-ON, per animal (brush, treat). Feeding
+-- and watering are NOT here — you fill a trough and the animals come
+-- (Wilbur ruling 2026-08-13, see Config.Troughs).
+Config.CareCooldownMinutes = { brush = 45 }
+Config.CareRestore         = { brush = 50 }
 Config.CareRange           = 4.0
+
+-- ============================================================================
+-- TROUGHS — how livestock actually eat and drink [Wilbur ruling 2026-08-13].
+-- You do not hand-feed a cow. You fill the trough; every animal that wants
+-- it walks over and helps itself until the trough runs dry. Chickens are
+-- the exception: their feed is SCATTERED on the ground (Config.Scatter).
+--
+-- Troughs are the MAP's own props, not something we place — every model
+-- Rockstar ships is listed so whichever one a property happens to have
+-- just works. All seven verified in rdr3_discoveries/objects.
+-- ============================================================================
+Config.Troughs = {
+  feed = {                              -- p_farm.rpf
+    'p_feedtrough01x', 'p_feedtroughsml01x',
+  },
+  water = {                             -- p_roadside.rpf
+    'p_watertrough01x', 'p_watertrough01x_new', 'p_watertrough02x',
+    'p_watertrough03x', 'p_watertroughsml01x',
+  },
+  scanRadius     = 40.0,   -- how far around a member we look for trough props
+  scanEveryMs    = 3000,   -- discovery cadence while on the property
+  promptRange    = 2.5,    -- how close to fill one
+  fillSeconds    = 4,      -- the fill action's duration
+  capacity       = 24,     -- animal-servings a full trough holds
+  drawRadius     = 20.0,   -- a hungry animal this close will walk to it
+  eatRange       = 3.0,    -- close enough to actually be feeding
+  restorePerTick = 20,     -- need points restored per SIM tick while feeding
+  hungerSeekAt   = 70,     -- an animal below this need goes looking
+}
+
+-- Chicken feed is thrown on the ground, and the birds converge on the spot
+-- until it is picked clean.
+Config.Scatter = {
+  minutes        = 6,      -- how long a scatter lasts before it is gone
+  capacity       = 12,     -- pecks before the ground is clean
+  drawRadius     = 20.0,
+  eatRange       = 2.5,
+  restorePerTick = 25,
+}
 
 -- Care animations (docs/animations-reference.md — scenario TYPES verified
 -- in the rdr3_discoveries dumps; judged live via /sr_anim + ledger gate
@@ -85,9 +125,10 @@ Config.FemaleSafeAnims = {   -- carry FEMALE_A conditional anims in the dumps
   WORLD_HUMAN_CROUCH_INSPECT = true,
 }
 
--- Feed can require an item once sovereign_crafting/shops supply one; Phase 1
--- default is free-with-cooldown so the care loop doesn't dead-end on an
--- unobtainable item. Medicine IS an item from day one (sql/items.sql).
+-- Filling a FEED trough (and scattering for chickens) can cost a feed item
+-- once sovereign_crafting/shops supply one. Off by default so the care loop
+-- doesn't dead-end on an unobtainable item; water is always free (your own
+-- well). Medicine IS an item from day one (sql/items.sql).
 Config.RequireFeedItem = false
 Config.FeedItem        = 'ranch_feed'
 Config.MedicineItem    = 'ranch_medicine'
