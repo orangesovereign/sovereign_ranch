@@ -79,29 +79,126 @@ local function safeSpawnCoord(x, y, z)
   return x, y, z
 end
 
---- Settle an animal into a wander around `home` (its mapped open-ground
---- anchor) rather than wherever it happens to be standing — wandering
---- from a bad spot just explores more bad spots.
-local function wanderAt(ped, home)
-  local c = GetEntityCoords(ped, true, true)
-  local hx, hy, hz = c.x, c.y, c.z
-  if home and home.x then hx, hy, hz = home.x, home.y, home.z end
-  ClearPedTasks(ped, true, true)
-  SetPedMoveRateOverride(ped, 1.0)   -- drop any keep-up boost
-  TaskWanderInArea(ped, hx, hy, hz, Config.Wander.radius or 8.0, 1.0, 1.0, 0)
+-- ============================================================================
+-- ROAMING — the pen zone (Wilbur ruling 2026-08-13).
+--
+-- TASK_WANDER_IN_AREA is not used any more: it does not know a fence is
+-- there. It picks a point in a radius and grinds toward it, so a coop yard
+-- smaller than the radius means a bird pressed into the rails forever.
+--
+-- Instead WE choose the destinations, always inside the mapped pen circle,
+-- and alternate walking with grazing. An animal outside its zone is walked
+-- back in. That gives containment, purposeful movement, and natural pauses
+-- — and never asks the navmesh for somewhere it cannot go.
+-- ============================================================================
+
+-- ⚠ These three are declared HERE, above every thread that reads them: a
+-- Lua closure captures only locals that already exist when it is created,
+-- so a table declared further down would be seen as a nil global and the
+-- thread would die on first tick.
+local roam       = {}   -- animalId -> { phase = 'walk'|'graze', tx, ty, tz, until_ }
+local feedingNow = {}   -- animalId -> true while the SERVER has it at a trough
+local leading    = {}   -- animalId -> true while THIS client is leading it
+
+local function zoneOf(rec)
+  local home = rec and rec.home
+  if not home or not home.x then return nil end
+  return home, (home.radius or Config.Wander.radius or 8.0)
 end
 
-local function wanderHere(ped)
-  wanderAt(ped, nil)
+--- A random point inside the pen, ground-checked. Biased toward the middle
+--- (sqrt keeps them off the rails rather than clustering at the edge).
+local function pointInZone(home, radius)
+  local ang = math.random() * 2 * math.pi
+  local dist = math.sqrt(math.random()) * radius * 0.85
+  local x, y = home.x + math.cos(ang) * dist, home.y + math.sin(ang) * dist
+  return safeSpawnCoord(x, y, home.z)
 end
+
+--- Hand the animal back to the roam loop (used after feeding, care,
+--- arriving home, or an un-sticking).
+local function beginRoam(animalId)
+  roam[animalId] = { phase = 'graze', until_ = GetGameTimer() + 1000 }
+end
+
+--- Legacy entry points kept so callers read the same; both now just hand
+--- the animal to the roam loop.
+local function wanderAt(ped, home, animalId)
+  if ped then
+    ClearPedTasks(ped, true, true)
+    SetPedMoveRateOverride(ped, 1.0)   -- drop any keep-up boost
+  end
+  if animalId then beginRoam(animalId) end
+end
+
+local function wanderHere(ped, animalId)
+  wanderAt(ped, nil, animalId)
+end
+
+--- The roam loop. One thread for every animal on the property, not one
+--- each: at 40 head this is a 2-second pass over a small table.
+CreateThread(function()
+  while true do
+    Wait(2000)
+    local now = GetGameTimer()
+
+    for animalId, rec in pairs(RanchHerd) do
+      if rec.netId and not leading[animalId] and not feedingNow[animalId] then
+        local ped = RanchEntity(animalId)
+        local home, radius = zoneOf(rec)
+        if ped and home then
+          local c = GetEntityCoords(ped, true, true)
+          local dx, dy = c.x - home.x, c.y - home.y
+          local outBy = math.sqrt(dx * dx + dy * dy) - radius
+          local r = roam[animalId]
+          if not r then r = { phase = 'graze', until_ = now } ; roam[animalId] = r end
+
+          if outBy > 0.5 then
+            -- OUT OF THE PEN. Walk it back to the middle; this is the
+            -- containment half of the zone system.
+            local tx, ty, tz = pointInZone(home, radius * 0.5)
+            r.phase, r.tx, r.ty, r.tz = 'walk', tx, ty, tz
+            r.until_ = now + 15000
+            TaskGoToCoordAnyMeans(ped, tx, ty, tz, 1.2, 0, false, 786603, 0.0)
+
+          elseif r.phase == 'walk' then
+            local tdx, tdy = c.x - (r.tx or c.x), c.y - (r.ty or c.y)
+            if (tdx * tdx + tdy * tdy) < 2.25 or now > (r.until_ or 0) then
+              -- Arrived, or gave up: stand and graze a while.
+              local v = rec.view or {}
+              local scenario = RanchScenario(v.species, v.sex, 'graze')
+              ClearPedTasks(ped, true, true)
+              if scenario then
+                Citizen.InvokeNative(0x4D1F61FC34AF3CD1, ped, GetHashKey(scenario),
+                  c.x, c.y, c.z, GetEntityHeading(ped), -1, false, false, '', 0.0, false)
+              end
+              r.phase = 'graze'
+              r.until_ = now + math.random(6000, 18000)
+            end
+
+          elseif now > (r.until_ or 0) then
+            -- Done grazing: pick somewhere else in the pen and amble over.
+            local tx, ty, tz = pointInZone(home, radius)
+            r.phase, r.tx, r.ty, r.tz = 'walk', tx, ty, tz
+            r.until_ = now + 15000
+            ClearPedTasks(ped, true, true)
+            TaskGoToCoordAnyMeans(ped, tx, ty, tz, 1.0, 0, false, 786603, 0.0)
+          end
+        end
+      end
+    end
+  end
+end)
 
 --- Put an animal back to its idle business after a care action or a meal.
 --- Exposed because care.lua holds animals still while brushing them.
 function RanchResumeIdle(animalId)
+  animalId = tonumber(animalId)
+  feedingNow[animalId] = nil
   local ped = RanchEntity(animalId)
   if not ped then return end
-  local rec = RanchHerd[tonumber(animalId)]
-  wanderAt(ped, rec and rec.home)
+  local rec = RanchHerd[animalId]
+  wanderAt(ped, rec and rec.home, animalId)
 end
 
 --- The species/sex scenario for an activity ('graze'|'eat'|'drink'), or nil
@@ -126,7 +223,8 @@ end
 -- there is no per-frame re-tasking and no stutter.
 -- ============================================================================
 
-local leading = {}   -- animalId -> true while THIS client is leading it
+-- (`leading` is declared at the top of this file with the other shared
+-- behaviour tables — see the note there about closure capture order.)
 
 local function bandFor(speed)
   local bands = Config.FollowPace.bands
@@ -230,13 +328,14 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
     local rec = RanchHerd[order.animalId]
     if not rec then rec = {}; RanchHerd[order.animalId] = rec end
     if order.homeX then
-      rec.home = { x = order.homeX, y = order.homeY, z = order.homeZ }
+      rec.home = { x = order.homeX, y = order.homeY, z = order.homeZ,
+                   radius = order.homeR }
     end
 
     if order.mode == 'transit' then
       RanchLead(order.animalId, ped)   -- pace-matching follow (see above)
     else
-      wanderAt(ped, rec.home)
+      wanderAt(ped, rec.home, order.animalId)
     end
 
     local netId = NetworkGetNetworkIdFromEntity(ped)
@@ -252,9 +351,9 @@ RegisterNetEvent('sovereign_ranch:client:settle', function(animalId)
   if not rec or not rec.netId then return end
   if not NetworkDoesEntityExistWithNetworkId(rec.netId) then return end
   local ped = NetworkGetEntityFromNetworkId(rec.netId)
-  -- A driven-home animal settles where it ARRIVED, not at the barn — it
-  -- just walked here with you; teleporting it to the anchor would be worse.
-  if ped and ped ~= 0 and DoesEntityExist(ped) then wanderHere(ped) end
+  -- A driven-home animal settles where it ARRIVED and then roams its pen
+  -- from there — it just walked here with you; teleporting it would be worse.
+  if ped and ped ~= 0 and DoesEntityExist(ped) then wanderHere(ped, animalId) end
 end)
 
 -- ============================================================================
@@ -298,10 +397,10 @@ CreateThread(function()
                   print(('[sovereign_ranch] animal #%d was pinned — lifted to its anchor')
                     :format(animalId))
                 end
-                wanderAt(ped, rec.home)
+                wanderAt(ped, rec.home, animalId)
                 s.strikes = 0
               elseif s.strikes == retask then
-                wanderAt(ped, rec.home)
+                wanderAt(ped, rec.home, animalId)
               end
             else
               s.strikes = 0
@@ -355,6 +454,7 @@ RegisterNetEvent('sovereign_ranch:client:feeding', function(list)
     local ped = RanchEntity(animalId)
     if ped and rec and not leading[animalId] then
       local f = row.feeding
+      feedingNow[animalId] = f and true or nil   -- roam yields to the server
       if not f then
         -- Done eating (full, or the trough ran dry): back to idle.
         RanchResumeIdle(animalId)
@@ -382,6 +482,8 @@ end)
 RegisterNetEvent('sovereign_ranch:client:despawn', function(animalId)
   animalId = tonumber(animalId)
   RanchStopLeading(animalId)   -- penned/removed mid-drive: stop pacing it
+  roam[animalId] = nil
+  feedingNow[animalId] = nil
   local rec = RanchHerd[animalId]
   if rec then rec.netId = nil end
 end)

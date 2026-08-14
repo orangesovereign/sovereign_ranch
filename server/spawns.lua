@@ -230,6 +230,7 @@ local function orderSpawn(src, a, mode)
     model = spec.models[a.sex] or spec.models.f,
     x = a.pos and a.pos.x, y = a.pos and a.pos.y, z = a.pos and a.pos.z,
     homeX = home and home.x, homeY = home and home.y, homeZ = home and home.z,
+    homeR = home and home.radius,   -- the pen zone: roam stays inside it
     name = a.name, species = a.species, sick = a.sick_state,
     mode = mode or 'pasture',   -- 'pasture' wanders; 'transit' follows the buyer
   })

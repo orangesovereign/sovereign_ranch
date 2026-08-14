@@ -15,10 +15,21 @@
   different places: a penned animal is despawned and has no location at
   all, so the barn interior is useless as a spawn point.
 
-    OPEN-GROUND points — animals SPAWN and WANDER here. Survey these in
+    OPEN-GROUND points — animals SPAWN and ROAM here. Survey these in
     the open, on walkable ground, clear of eaves, fences and props:
-      pasture     release + wander anchor for cattle, pigs, sheep, goats
-      chickenPen  release + wander anchor for chickens/roosters
+      pasture     release + roam anchor for cattle, pigs, sheep, goats
+      chickenPen  release + roam anchor for chickens/roosters
+
+    ⚠ GIVE EVERY OPEN-GROUND POINT A `radius` — this is the PEN ZONE, and
+    it is what stops animals walking into fences (live finding
+    2026-08-13: chickens ground themselves against the coop fence
+    forever). Animals only ever pick roam destinations INSIDE this
+    circle, and one that strays outside is walked back. Survey it by
+    standing at the anchor and pacing to the nearest fence: use a hair
+    LESS than that distance, so the far side of the animal clears the
+    rail. A small coop yard is 4–6 m; an open pasture 20–40 m.
+    Omitted → Config.Wander.radius (8 m), which is a guess and will be
+    wrong for a small pen.
 
     STRUCTURE points — interaction anchors only, never spawn points
     (Phase 2 hangs the butcher/product/egg stations off these):
@@ -47,9 +58,11 @@ Config.Ranches = {
   -- says "no mapped points" against the real ident, rename this key to
   -- match what /ranchadmin list prints.
   ['beechers_hope'] = {
-    barn       = { x = -1596.40, y = -1415.10, z = 81.90, h = 252.28 },   -- inside the barn
-    pasture    = { x = -1500.936, y = -1422.768, z = 81.449 },  -- pen centre
-    chickenPen = { x = -1583.32, y = -1397.58, z = 81.80, h = 164.40 },
-    coop       = { x = -1584.94, y = -1392.92, z = 82.00, h = 62.36 },
+    barn       = { x = -1596.40, y = -1415.10, z = 81.90, h = 252.28 },   -- structure: Phase 2 stations
+    coop       = { x = -1584.94, y = -1392.92, z = 82.00, h = 62.36 },    -- structure: Phase 2 egg point
+    -- Open ground. ⚠ radius values are ESTIMATES — pace the real fences
+    -- and correct them; too large is what puts a bird in the rails.
+    pasture    = { x = -1500.936, y = -1422.768, z = 81.449, radius = 25.0 },
+    chickenPen = { x = -1583.32, y = -1397.58, z = 81.80, h = 164.40, radius = 5.0 },
   },
 }
