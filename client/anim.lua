@@ -110,13 +110,21 @@ function RanchEndScenario(ped)
     return ok and using == true
   end
 
-  if inScenario() then
-    -- 1. The polite exit: plays the outro and stows the prop.
+  -- Did a scenario actually take? That decides everything below: a real
+  -- one has an OUTRO worth watching, a broken one has a stuck task worth
+  -- killing. Treating both the same is how this went wrong twice — first
+  -- skipping cleanup and pinning the player, then hard-clearing everything
+  -- and cutting the animation off mid-stroke.
+  local started = inScenario()
+
+  if started then
+    -- 1. Ask for the outro — the ped straightens up and stows the prop —
+    --    and let it PLAY. This is the whole point of the polite exit.
     pcall(function() Citizen.InvokeNative(0xA3A9299C4F2ADB98, ped) end)
     local waited = 0
-    while waited < 1500 and inScenario() do Wait(50); waited = waited + 50 end
+    while waited < 2500 and inScenario() do Wait(50); waited = waited + 50 end
 
-    -- 2. Still in it: demand an immediate exit.
+    -- 2. Outro refusing to finish: demand the immediate one.
     if inScenario() then
       pcall(function() Citizen.InvokeNative(0xF1C03A5352243A30, ped) end)
       local w2 = 0
@@ -124,16 +132,19 @@ function RanchEndScenario(ped)
     end
   end
 
-  -- 3. Then clear UNCONDITIONALLY.
-  --
-  -- Gating this on IS_PED_USING_ANY_SCENARIO was the second half of the
-  -- stuck bug: a scenario that never properly started reports false, so
-  -- the cleanup was skipped entirely and the player kept whatever broken
-  -- task they were left holding. The chore is stationary, so a hard clear
-  -- costs nothing visually and guarantees the player gets their body back.
+  local stuck = inScenario()
+
+  -- 3. Gentle clear always — this does not snap an animation.
   ClearPedTasks(ped, true, true)
-  pcall(function() Citizen.InvokeNative(0x176CECF6F920D707, ped) end)          -- CLEAR_PED_SECONDARY_TASK
-  pcall(function() Citizen.InvokeNative(0xAAA34F8A7CB32098, ped, false, false) end) -- CLEAR_PED_TASKS_IMMEDIATELY
+  pcall(function() Citizen.InvokeNative(0x176CECF6F920D707, ped) end)   -- CLEAR_PED_SECONDARY_TASK
+
+  -- 4. The hard clear is a LAST RESORT, not routine. It kills the ped's
+  --    task instantly, which is exactly what an outro looks like being
+  --    cut in half. Only when the scenario never started (nothing to
+  --    preserve, and the case that pinned players) or refused to end.
+  if stuck or not started then
+    pcall(function() Citizen.InvokeNative(0xAAA34F8A7CB32098, ped, false, false) end)
+  end
 
   -- The outro is best-effort; this is the guarantee. Nothing this resource
   -- plays leaves anything in the player's hands.
