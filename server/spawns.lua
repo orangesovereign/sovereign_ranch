@@ -231,7 +231,8 @@ local function orderSpawn(src, a, mode)
     x = a.pos and a.pos.x, y = a.pos and a.pos.y, z = a.pos and a.pos.z,
     homeX = home and home.x, homeY = home and home.y, homeZ = home and home.z,
     homeR = home and home.radius,   -- the pen zone: roam stays inside it
-    name = a.name, species = a.species, sick = a.sick_state,
+    name = a.name, species = a.species, sex = a.sex, sick = a.sick_state,
+    variation = a.variation or 0,   -- its coat, for life
     mode = mode or 'pasture',   -- 'pasture' wanders; 'transit' follows the buyer
   })
 end

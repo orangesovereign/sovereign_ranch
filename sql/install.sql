@@ -54,6 +54,10 @@ CREATE TABLE IF NOT EXISTS `sovereign_ranch_animals` (
   `born_at`         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `sim_minutes`     INT UNSIGNED NOT NULL DEFAULT 0,
   `scale`           DECIMAL(4,3) NOT NULL DEFAULT 0.500,
+  -- The animal's LOOK, fixed for life. A stable number the client mods by
+  -- the model's real preset count, so the same beast wears the same coat
+  -- every time it is spawned instead of rerolling its breed.
+  `variation`       SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   `health`          TINYINT UNSIGNED NOT NULL DEFAULT 100,
   `hunger`          TINYINT UNSIGNED NOT NULL DEFAULT 100,
   `thirst`          TINYINT UNSIGNED NOT NULL DEFAULT 100,

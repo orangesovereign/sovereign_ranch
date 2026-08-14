@@ -77,12 +77,15 @@ end
 ---   TASK_GO_STRAIGHT_TO_COORD              0xD76B57B44F1E6F8B (9 params)
 ---   TASK_TURN_PED_TO_FACE_ENTITY           0x5AD23D40115353AC (6 params, not 3)
 ---   TASK_STAND_STILL                       0x919BE13EED931959
-local function approachAnimal(animalPed, holdMs)
+local function approachAnimal(animalId, animalPed, holdMs)
   local ped = PlayerPedId()
 
   -- Hold the animal where it stands, then take up position at its left
   -- flank — brushing a moving cow from two metres away looks like mime.
-  TaskStandStill(animalPed, holdMs)
+  -- RanchHold also parks the ROAM LOOP for this animal: without that it
+  -- re-tasks every 2 s and walks the beast out from under you, which is
+  -- what "the cow runs off when I try to brush it" actually was.
+  RanchHold(animalId, holdMs)
 
   local side = GetOffsetFromEntityInWorldCoords(animalPed, -1.1, 0.0, 0.0)
   TaskGoStraightToCoord(ped, side.x, side.y, side.z, 1.0, 3000,
@@ -113,7 +116,7 @@ local function performCare(animalId, verb, serverEvent)
 
     -- Hands-on verbs need to be within arm's reach of the animal.
     local animalPed = RanchEntity(animalId)
-    if animalPed then approachAnimal(animalPed, duration + 3000) end
+    if animalPed then approachAnimal(animalId, animalPed, duration + 6000) end
 
     if name then
       Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),

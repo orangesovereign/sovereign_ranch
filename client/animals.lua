@@ -23,6 +23,8 @@ RanchHerd = {}
 --- The standing dressing rule: every ped this resource spawns gets the
 --- two-native dress, a settle beat, and a second dress. Global — main.lua's
 --- probe assist and menus.lua's dealer ped use the same hands.
+--- ⚠ RANDOM. Correct for background humans; NEVER for an animal we own —
+--- see RanchDressAnimal.
 function RanchDress(ped)
   local function once()
     pcall(function() Citizen.InvokeNative(0x283978A15512B2FE, ped, true) end)
@@ -31,6 +33,42 @@ function RanchDress(ped)
   once()
   Wait(100)
   once()
+end
+
+--- Dress an OWNED animal in its own, permanent coat (Wilbur ruling
+--- 2026-08-13: the beast you bought is the beast you keep). The random
+--- dress rerolled the breed on every single spawn — buy a black-and-white
+--- cow, pen it, let it out, and a different cow walks out.
+---
+--- `variation` is a stable per-animal number from the DB; we mod it by the
+--- model's real preset count so any number is valid for any species and
+--- the same animal always resolves to the same preset.
+--- Natives verified in RDR3 2026-08-13:
+---   GET_NUM_META_PED_OUTFITS      0x10C70A515BC03707 (Ped) → int
+---   _EQUIP_META_PED_OUTFIT_PRESET 0x77FF8D35EEC6BBC4 (Ped, int presetId, BOOL)
+---   _UPDATE_PED_VARIATION         0xCC8CA3E88256E58F (Ped, 5×BOOL)
+function RanchDressAnimal(ped, variation)
+  local applied = false
+  pcall(function()
+    local count = Citizen.InvokeNative(0x10C70A515BC03707, ped)
+    if count and count > 0 then
+      Citizen.InvokeNative(0x77FF8D35EEC6BBC4, ped,
+        (tonumber(variation) or 0) % count, false)
+      applied = true
+    end
+  end)
+  -- No preset table for this model: fall back to the random dress, because
+  -- an UNDRESSED ped can render invisible and that is worse than a reroll.
+  if not applied then
+    pcall(function() Citizen.InvokeNative(0x283978A15512B2FE, ped, true) end)
+  end
+  local function update()
+    pcall(function() Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, false, true, true, true, false) end)
+  end
+  update()
+  Wait(100)   -- the settle beat fresh RDR3 peds need
+  update()
+  return applied
 end
 
 local function loadModel(name)
@@ -99,6 +137,7 @@ end
 local roam       = {}   -- animalId -> { phase = 'walk'|'graze', tx, ty, tz, until_ }
 local feedingNow = {}   -- animalId -> true while the SERVER has it at a trough
 local leading    = {}   -- animalId -> true while THIS client is leading it
+local held       = {}   -- animalId -> expiry ms while someone is tending it
 
 local function zoneOf(rec)
   local home = rec and rec.home
@@ -119,6 +158,28 @@ end
 --- arriving home, or an un-sticking).
 local function beginRoam(animalId)
   roam[animalId] = { phase = 'graze', until_ = GetGameTimer() + 1000 }
+end
+
+--- HOLD an animal still while a hand works on it. Without this the roam
+--- loop re-tasks it every 2 s and walks it out from under the brush —
+--- which reads in-game as the animal running away from you (live finding
+--- 2026-08-13). Also blanks its flee reactions for the duration.
+function RanchHold(animalId, ms)
+  animalId = tonumber(animalId)
+  held[animalId] = GetGameTimer() + (ms or 10000)
+  local ped = RanchEntity(animalId)
+  if not ped then return end
+  ClearPedTasks(ped, true, true)
+  pcall(function()
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedFleeAttributes(ped, 0, false)   -- 0 = flee from nothing
+  end)
+  TaskStandStill(ped, ms or 10000)
+end
+
+--- Let it go again.
+function RanchUnhold(animalId)
+  held[tonumber(animalId)] = nil
 end
 
 --- Legacy entry points kept so callers read the same; both now just hand
@@ -143,7 +204,11 @@ CreateThread(function()
     local now = GetGameTimer()
 
     for animalId, rec in pairs(RanchHerd) do
-      if rec.netId and not leading[animalId] and not feedingNow[animalId] then
+      -- Being led, feeding, or held for tending: someone else owns this
+      -- animal's tasks right now. Expired holds fall through naturally.
+      if held[animalId] and now > held[animalId] then held[animalId] = nil end
+      if rec.netId and not leading[animalId] and not feedingNow[animalId]
+        and not held[animalId] then
         local ped = RanchEntity(animalId)
         local home, radius = zoneOf(rec)
         if ped and home then
@@ -195,6 +260,7 @@ end)
 function RanchResumeIdle(animalId)
   animalId = tonumber(animalId)
   feedingNow[animalId] = nil
+  held[animalId] = nil
   local ped = RanchEntity(animalId)
   if not ped then return end
   local rec = RanchHerd[animalId]
@@ -317,8 +383,12 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
       :format(tostring(order.animalId), tostring(order.species), x, y, z))
 
     SetEntityAsMissionEntity(ped, true, true)
-    RanchDress(ped)
-    SetBlockingOfNonTemporaryEvents(ped, true)   -- no fleeing the brush
+    RanchDressAnimal(ped, order.variation)       -- its own coat, every time
+    -- Livestock are handled by people all day: they do not spook and bolt
+    -- when a hand walks up (live finding 2026-08-13 — a cow ran off when
+    -- approached to brush it). SET_PED_FLEE_ATTRIBUTES 0x70A2D1137C8ED7C9.
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    pcall(function() SetPedFleeAttributes(ped, 0, false) end)
 
     -- Any client (prompts, lasso in P4) resolves the animal id off the ped.
     Entity(ped).state:set('sov_animal', order.animalId, true)
@@ -423,6 +493,9 @@ local function absorb(view)
   if type(view) ~= 'table' or not view.id then return end
   local rec = RanchHerd[view.id]
   if not rec then rec = {}; RanchHerd[view.id] = rec end
+  -- Keep the sex the spawn order carried: the SIM's lighter views don't
+  -- repeat it, and the roam/eat scenarios pick per sex (bull vs cow).
+  if rec.view and rec.view.sex and not view.sex then view.sex = rec.view.sex end
   rec.view = view
   rec.netId = view.netId or rec.netId
   if view.state ~= 'spawned' and view.state ~= 'transit' then

@@ -79,7 +79,9 @@ end
 --- skips. Append new entries here; never rewrite history.
 function Db.runMigrations()
   local migrations = {
-    -- none yet — Phase 0 ships the base schema
+    -- Phase 1: an animal's appearance is persistent, not rerolled per spawn.
+    { table = 'sovereign_ranch_animals', column = 'variation',
+      ddl = 'ALTER TABLE `sovereign_ranch_animals` ADD COLUMN `variation` SMALLINT UNSIGNED NOT NULL DEFAULT 0' },
   }
   for _, m in ipairs(migrations) do
     local row = Db.single([[
@@ -195,7 +197,7 @@ function Db.loadAnimals()
   return Db.query([[
     SELECT id, ranch_id, species, sex, name,
            UNIX_TIMESTAMP(born_at) AS born_at,
-           sim_minutes, scale, health, hunger, thirst, groom,
+           sim_minutes, scale, variation, health, hunger, thirst, groom,
            sick_state, pregnant_until, product_progress, product_ready,
            state, pos, meta
     FROM sovereign_ranch_animals
@@ -207,12 +209,12 @@ end
 function Db.insertAnimal(a)
   return Db.insert([[
     INSERT INTO sovereign_ranch_animals
-      (ranch_id, species, sex, name, sim_minutes, scale, health, hunger,
-       thirst, groom, sick_state, state, pos)
-    VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''))
+      (ranch_id, species, sex, name, sim_minutes, scale, variation, health,
+       hunger, thirst, groom, sick_state, state, pos)
+    VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''))
   ]], {
     a.ranch_id, a.species, a.sex, a.name or '',
-    a.sim_minutes or 0, a.scale or 0.5, a.health or 100,
+    a.sim_minutes or 0, a.scale or 0.5, a.variation or 0, a.health or 100,
     a.hunger or 100, a.thirst or 100, a.groom or 100,
     a.sick_state or 'healthy', a.state or 'penned', a.pos or '',
   })
@@ -233,6 +235,16 @@ function Db.flushAnimal(a)
     a.pregnant_until or 0, a.product_progress or 0, a.product_ready and 1 or 0,
     a.state or 'penned', a.pos or '', a.id,
   })
+end
+
+--- Write an animal's coat ONCE. Deliberately not part of flushAnimal:
+--- appearance is immutable for the animal's life, and the only legitimate
+--- write is assigning it (new animal, or backfilling a row that predates
+--- the column).
+function Db.setVariation(id, variation)
+  return Db.execute(
+    'UPDATE sovereign_ranch_animals SET variation = ? WHERE id = ?',
+    { math.floor(tonumber(variation) or 0), id })
 end
 
 --- Mark one animal dead (row kept as the record; slot freed by the cache).

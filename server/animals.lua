@@ -42,19 +42,30 @@ end
 function Animals.load()
   byId, byRanch, dirty = {}, {}, {}
   local rows = Db.loadAnimals() or {}
+  local backfilled = 0
   for _, a in ipairs(rows) do
     a.id = tonumber(a.id); a.ranch_id = tonumber(a.ranch_id)
     a.sim_minutes = tonumber(a.sim_minutes) or 0
     a.scale = tonumber(a.scale) or 0.5
+    a.variation = tonumber(a.variation) or 0
     a.health = tonumber(a.health) or 100
     a.hunger = tonumber(a.hunger) or 100
     a.thirst = tonumber(a.thirst) or 100
     a.groom  = tonumber(a.groom) or 100
     a.product_ready = tonumber(a.product_ready) == 1
     a.pos = type(a.pos) == 'string' and a.pos ~= '' and json.decode(a.pos) or nil
+    -- 0 means "predates the variation column": give it a coat once, now,
+    -- so an existing herd isn't a row of identical clones. New animals are
+    -- always 1..999, so 0 is unambiguous.
+    if a.variation == 0 then
+      a.variation = math.random(1, 999)
+      Db.setVariation(a.id, a.variation)
+      backfilled = backfilled + 1
+    end
     index(a)
   end
-  Log.info('loaded %d animal(s)', #rows)
+  Log.info('loaded %d animal(s)%s', #rows,
+    backfilled > 0 and (' (%d given a coat)'):format(backfilled) or '')
 end
 
 function Animals.get(id) return byId[tonumber(id)] end
@@ -131,6 +142,12 @@ function Animals.add(ranch, species, sex, opts)
     name = opts.name, sim_minutes = opts.sim_minutes or 0,
     scale = opts.scale or 0.5, health = 100, hunger = 100, thirst = 100,
     groom = 100, sick_state = 'healthy',
+    -- The animal's LOOK, decided once and never again: this beast wears
+    -- the same coat from the day it is bought until it dies or is sold
+    -- (Wilbur ruling 2026-08-13). The client mods it by the model's real
+    -- preset count, so any number here is valid for any species. Never
+    -- written by flushAnimal — immutable by construction.
+    variation = opts.variation or math.random(1, 999),   -- 0 is reserved for "unset"
     state = opts.state or State.PENNED,
     pos = opts.pos and json.encode(opts.pos) or nil,
   }
@@ -139,6 +156,7 @@ function Animals.add(ranch, species, sex, opts)
   row.id = tonumber(id)
   row.pos = opts.pos
   row.product_ready = false
+  row.variation = row.variation or 0
   index(row)
   return true, row
 end
