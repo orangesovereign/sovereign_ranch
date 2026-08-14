@@ -255,5 +255,21 @@ function Ranches.reconcile()
     end
   end
 
+  -- Mapped-points sanity. config/ranches.lua is keyed by the realestate
+  -- IDENT, and a key that does not match is invisible until someone walks
+  -- up to where an NPC should be and nothing happens. Say it at boot.
+  for _, r in pairs(cache) do
+    if r.owner_charid then
+      local points = Ranches.pointsOf(r.ident)
+      if next(points) == nil then
+        Log.warn('ranch %s has NO mapped points — add a `[\'%s\']` entry to config/ranches.lua (the key is the realestate ident)',
+          r.ident, r.ident)
+      elseif not points[Config.Manager.point or 'manager'] then
+        Log.warn('ranch %s has points but no `%s` — its ranch manager will not appear',
+          r.ident, Config.Manager.point or 'manager')
+      end
+    end
+  end
+
   Members.reconcileGrades()
 end

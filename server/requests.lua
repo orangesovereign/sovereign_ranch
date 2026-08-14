@@ -212,13 +212,30 @@ RegisterNetEvent('sovereign_ranch:server:requestManager', function()
   local m = charid and Members.get(charid)
   if not m then return fail(src, Err.NOT_MEMBER) end
 
+  -- Every refusal below SPEAKS. Silent returns here meant "the manager
+  -- does nothing" with no way to tell which check bit — the tester has
+  -- burned rounds on exactly that, so it does not happen again.
+  local ranch = Ranches.get(m.ranch_id)
   local at = Ranches.managerPointFor(src)
-  if not at then return end
+  if not at then
+    local ident = ranch and ranch.ident or '?'
+    Log.warn('manager: no `%s` point mapped for ranch %s — config/ranches.lua is keyed by the realestate IDENT',
+      Config.Manager.point or 'manager', ident)
+    Notify.toast(src, 'Ranch',
+      ('No manager is mapped for %s. (Config key must match the ranch ident.)'):format(ident), 'warn')
+    return
+  end
+
   local ped = GetPlayerPed(src)
   if not ped or ped == 0 then return end
   local c = GetEntityCoords(ped)
   local dx, dy = c.x - at.x, c.y - at.y
-  if (dx * dx + dy * dy) > 36.0 then return end
+  local d2 = dx * dx + dy * dy
+  if d2 > 36.0 then
+    Log.debug('manager: %s stood %.1fm away (limit 6m)', tostring(charid), math.sqrt(d2))
+    Notify.toast(src, 'Ranch', T('care_too_far'), 'warn')
+    return
+  end
 
   -- Produce he will take off you.
   local rows = {}
