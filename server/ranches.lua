@@ -49,6 +49,18 @@ function Ranches.pointsOf(ident)
   return (Config.Ranches or {})[tostring(ident or ''):lower()] or {}
 end
 
+--- Where this species is LET OUT and wanders. Open-ground points first;
+--- structures only as a last resort, because an interior point strands the
+--- animal inside a building (live finding 2026-08-13 — see the header of
+--- config/ranches.lua). nil = no map, caller falls back to the releaser.
+function Ranches.releaseAnchor(ident, species)
+  local p = Ranches.pointsOf(ident)
+  if species == 'chicken' then
+    return p.chickenPen or p.coop or p.pasture
+  end
+  return p.pasture or p.barn
+end
+
 --- The ranch a charid OWNS (grade-4 seat), or nil. Membership answers "works
 --- at"; this answers "holds the deed of".
 function Ranches.getByOwner(charid)

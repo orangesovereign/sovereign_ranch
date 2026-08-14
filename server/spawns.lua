@@ -177,11 +177,17 @@ end)
 
 local function orderSpawn(src, a, mode)
   local spec = Config.Animals[a.species]
+  local ranch = Ranches.get(a.ranch_id)
+  -- The home anchor travels with the order: the client wanders the animal
+  -- around it and, if the watchdog finds it grinding into geometry, lifts
+  -- it back there rather than leaving it pinned forever.
+  local home = ranch and Ranches.releaseAnchor(ranch.ident, a.species) or nil
   orders[a.id] = src
   TriggerClientEvent('sovereign_ranch:client:spawn', src, {
     animalId = a.id,
     model = spec.models[a.sex] or spec.models.f,
     x = a.pos and a.pos.x, y = a.pos and a.pos.y, z = a.pos and a.pos.z,
+    homeX = home and home.x, homeY = home and home.y, homeZ = home and home.z,
     name = a.name, species = a.species, sick = a.sick_state,
     mode = mode or 'pasture',   -- 'pasture' wanders; 'transit' follows the buyer
   })

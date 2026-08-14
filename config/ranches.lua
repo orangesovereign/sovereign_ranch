@@ -8,13 +8,26 @@
   fallback behaviour (release beside the releasing member, wander where
   spawned), so mapping is incremental and nothing breaks while it's empty.
 
-  Points and who reads them:
-    barn        release/pen anchor for cattle, pigs, sheep, goats (Phase 1);
-                the Phase 2 butcher/product stations hang off it
-    chickenPen  release anchor for chickens/roosters (ground-level pen —
-                preferred over the coop structure for spawning)
-    coop        Phase 2 egg-collection point; chicken release FALLBACK when
-                no chickenPen is mapped
+  ⚠ TWO KINDS OF POINT — do not mix them up (live finding 2026-08-13:
+  animals released at an INTERIOR barn point walked into walls forever,
+  because a building has no route out and the game's navmesh cannot help
+  them). "Where an animal is KEPT" and "where an animal is LET OUT" are
+  different places: a penned animal is despawned and has no location at
+  all, so the barn interior is useless as a spawn point.
+
+    OPEN-GROUND points — animals SPAWN and WANDER here. Survey these in
+    the open, on walkable ground, clear of eaves, fences and props:
+      pasture     release + wander anchor for cattle, pigs, sheep, goats
+      chickenPen  release + wander anchor for chickens/roosters
+
+    STRUCTURE points — interaction anchors only, never spawn points
+    (Phase 2 hangs the butcher/product/egg stations off these):
+      barn        the barn building
+      coop        the coop building
+
+  Release falls back structure-ward only if no open-ground point is
+  mapped (pasture → barn, chickenPen → coop → pasture), and the client
+  still ground-snaps and safe-coords whatever it is given.
     pasture     reserved: the ON-PROPERTY settle/wander centre — where
                 animals idle when all is well, and the HOME anchor a
                 wrangled stray is led back to. NOT where strays drift:
@@ -34,9 +47,9 @@ Config.Ranches = {
   -- says "no mapped points" against the real ident, rename this key to
   -- match what /ranchadmin list prints.
   ['beechers_hope'] = {
-    barn       = { x = -1600.758, y = -1412.767, z = 81.93 },   -- inside the barn
+    barn       = { x = -1596.40, y = -1415.10, z = 81.90, h = 252.28 },   -- inside the barn
     pasture    = { x = -1500.936, y = -1422.768, z = 81.449 },  -- pen centre
-    chickenPen = { x = -1584.877, y = -1398.599, z = 81.263 },
-    coop       = { x = -1582.946, y = -1393.685, z = 82.001 },
+    chickenPen = { x = -1583.32, y = -1397.58, z = 81.80, h = 164.40 },
+    coop       = { x = -1584.94, y = -1392.92, z = 82.00, h = 62.36 },
   },
 }

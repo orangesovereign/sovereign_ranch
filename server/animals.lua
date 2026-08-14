@@ -398,14 +398,13 @@ function Animals.release(src, animalId)
     return false, Err.BUSY
   end
 
-  local points = Ranches.pointsOf(ranch.ident)
-  -- Chickens: the ground-level pen first, the coop structure as fallback.
-  local anchor = (a.species == 'chicken' and (points.chickenPen or points.coop))
-    or points.barn
+  -- Open-ground anchor for the species (never a building interior — the
+  -- client still ground-snaps and safe-coords whatever we send).
+  local anchor = Ranches.releaseAnchor(ranch.ident, a.species)
   if anchor then
-    -- 1.5–3m scatter ring around the anchor.
+    local spread = Config.Wander and Config.Wander.scatter or 2.5
     local ang = math.random() * 2 * math.pi
-    local dist = 1.5 + math.random() * 1.5
+    local dist = 1.0 + math.random() * spread
     a.pos = { x = anchor.x + math.cos(ang) * dist,
               y = anchor.y + math.sin(ang) * dist, z = anchor.z }
   else

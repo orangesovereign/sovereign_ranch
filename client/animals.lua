@@ -44,11 +44,46 @@ local function loadModel(name)
   return nil
 end
 
-local function wanderHere(ped)
-  local c = GetEntityCoords(ped)
+--- Ground-truth a spawn coord before anything stands on it. A surveyed
+--- point can sit under an eave, inside a prop, or on a building floor;
+--- dropping a ped there gives it nowhere to route (live finding
+--- 2026-08-13). Natives verified in RDR3:
+---   GET_SAFE_COORD_FOR_PED    0xB61C8E878A4199CA (x,y,z,onGround,Vec3*,flags) → BOOL
+---   GET_GROUND_Z_FOR_3D_COORD 0x24FA4267BB8D2431 (x,y,z,float*,BOOL) → BOOL
+--- Both are guarded: an unavailable wrapper degrades to the raw coord
+--- rather than killing the spawn.
+local function safeSpawnCoord(x, y, z)
+  local ok, pos = pcall(function()
+    local found, out = GetSafeCoordForPed(x, y, z, true, 16)
+    if found and out then return out end
+    return nil
+  end)
+  if ok and pos and pos.x then return pos.x, pos.y, pos.z end
+
+  local okg, gz = pcall(function()
+    local found, groundZ = GetGroundZFor_3dCoord(x, y, z + 3.0, false)
+    if found then return groundZ end
+    return nil
+  end)
+  if okg and gz then return x, y, gz + 0.05 end
+
+  return x, y, z
+end
+
+--- Settle an animal into a wander around `home` (its mapped open-ground
+--- anchor) rather than wherever it happens to be standing — wandering
+--- from a bad spot just explores more bad spots.
+local function wanderAt(ped, home)
+  local c = GetEntityCoords(ped, true, true)
+  local hx, hy, hz = c.x, c.y, c.z
+  if home and home.x then hx, hy, hz = home.x, home.y, home.z end
   ClearPedTasks(ped, true, true)
   SetPedMoveRateOverride(ped, 1.0)   -- drop any keep-up boost
-  TaskWanderInArea(ped, c.x, c.y, c.z, 12.0, 1.0, 1.0, 0)
+  TaskWanderInArea(ped, hx, hy, hz, Config.Wander.radius or 8.0, 1.0, 1.0, 0)
+end
+
+local function wanderHere(ped)
+  wanderAt(ped, nil)
 end
 
 -- ============================================================================
@@ -137,7 +172,7 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
       return
     end
 
-    local x, y, z = order.x + 0.0, order.y + 0.0, (order.z or 0.0) + 0.0
+    local x, y, z = safeSpawnCoord(order.x + 0.0, order.y + 0.0, (order.z or 0.0) + 0.0)
     -- Networked, script-host — the arity realestate's spawner proved live.
     local ped = CreatePed(model, x, y, z, 0.0, true, true, true, true)
     local tries = 0
@@ -155,10 +190,18 @@ RegisterNetEvent('sovereign_ranch:client:spawn', function(order)
     -- Any client (prompts, lasso in P4) resolves the animal id off the ped.
     Entity(ped).state:set('sov_animal', order.animalId, true)
 
+    -- Remember the mapped anchor: the wander centre AND where the stuck
+    -- watchdog lifts it back to.
+    local rec = RanchHerd[order.animalId]
+    if not rec then rec = {}; RanchHerd[order.animalId] = rec end
+    if order.homeX then
+      rec.home = { x = order.homeX, y = order.homeY, z = order.homeZ }
+    end
+
     if order.mode == 'transit' then
       RanchLead(order.animalId, ped)   -- pace-matching follow (see above)
     else
-      wanderHere(ped)
+      wanderAt(ped, rec.home)
     end
 
     local netId = NetworkGetNetworkIdFromEntity(ped)
@@ -174,7 +217,68 @@ RegisterNetEvent('sovereign_ranch:client:settle', function(animalId)
   if not rec or not rec.netId then return end
   if not NetworkDoesEntityExistWithNetworkId(rec.netId) then return end
   local ped = NetworkGetEntityFromNetworkId(rec.netId)
+  -- A driven-home animal settles where it ARRIVED, not at the barn — it
+  -- just walked here with you; teleporting it to the anchor would be worse.
   if ped and ped ~= 0 and DoesEntityExist(ped) then wanderHere(ped) end
+end)
+
+-- ============================================================================
+-- The stuck watchdog. RDR3 peds route over the game's navmesh once tasked,
+-- but a ped that starts (or wanders) into geometry will grind against it
+-- indefinitely — it never reports failure. Nothing but observation catches
+-- that, so: sample positions, and escalate.
+--   3 strikes (~15s pinned) → clear tasks, wander afresh from the anchor.
+--     Harmless if it was only grazing, which is why it's eager.
+--   6 strikes (~30s, so the re-task didn't take) → lift it to safe ground
+--     at its anchor. The conservative rung, because it's a teleport.
+-- Led animals are exempt: they're supposed to stand still when you do.
+-- ============================================================================
+
+local stuckState = {}   -- animalId -> { x, y, strikes }
+
+CreateThread(function()
+  while true do
+    Wait(Config.Wander.stuckCheckMs or 5000)
+    local minMove = (Config.Wander.stuckDistance or 0.4) ^ 2
+    local retask  = Config.Wander.strikesRetask or 3
+    local warp    = Config.Wander.strikesWarp or 6
+
+    for animalId, rec in pairs(RanchHerd) do
+      if rec.netId and not leading[animalId] then
+        local ped = RanchEntity(animalId)
+        if not ped then
+          stuckState[animalId] = nil
+        else
+          local c = GetEntityCoords(ped, true, true)
+          local s = stuckState[animalId]
+          if s then
+            local dx, dy = c.x - s.x, c.y - s.y
+            if (dx * dx + dy * dy) < minMove then
+              s.strikes = s.strikes + 1
+              if s.strikes >= warp then
+                local h = rec.home
+                if h then
+                  local sx, sy, sz = safeSpawnCoord(h.x, h.y, h.z)
+                  SetEntityCoordsNoOffset(ped, sx, sy, sz, false, false, false)
+                  print(('[sovereign_ranch] animal #%d was pinned — lifted to its anchor')
+                    :format(animalId))
+                end
+                wanderAt(ped, rec.home)
+                s.strikes = 0
+              elseif s.strikes == retask then
+                wanderAt(ped, rec.home)
+              end
+            else
+              s.strikes = 0
+            end
+            s.x, s.y = c.x, c.y
+          else
+            stuckState[animalId] = { x = c.x, y = c.y, strikes = 0 }
+          end
+        end
+      end
+    end
+  end
 end)
 
 -- ============================================================================

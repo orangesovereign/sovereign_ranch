@@ -131,6 +131,24 @@ Config.FollowPace = {
 }
 
 -- ============================================================================
+-- Wander & the stuck watchdog. RDR3 peds route themselves over the game's
+-- navmesh once tasked — our job is to put them on ground the navmesh
+-- actually covers, and to notice when one is grinding into a surface
+-- anyway (live finding 2026-08-13: animals spawned indoors walked into
+-- walls forever). Re-tasking a false positive is harmless (a grazing
+-- animal just picks a new spot), so the retask threshold is deliberately
+-- eager and only the WARP is conservative.
+-- ============================================================================
+Config.Wander = {
+  radius          = 8.0,    -- how far a settled animal drifts from its anchor
+  scatter         = 2.5,    -- release spread around the anchor, metres
+  stuckCheckMs    = 5000,   -- watchdog sample cadence
+  stuckDistance   = 0.4,    -- moved less than this between samples = one strike
+  strikesRetask   = 3,      -- ≈15s pinned → clear tasks and wander afresh
+  strikesWarp     = 6,      -- ≈30s pinned (retask failed) → lift to the anchor
+}
+
+-- ============================================================================
 -- Admin & debug
 -- ============================================================================
 Config.AdminGroups = { admin = true, superadmin = true }  -- users.group / characters.group
