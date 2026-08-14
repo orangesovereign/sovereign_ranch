@@ -13,8 +13,68 @@
 -- Herd Book (/herdbook) — list, then per-animal context.
 -- ============================================================================
 
+--- Move a whole species in or out. Turning out twenty head one click at a
+--- time is data entry, not husbandry.
+local function openHerdMoves(data)
+  -- Count what is actually in and out, per species, so the menu can say so
+  -- rather than offering moves that would do nothing.
+  local tally = {}
+  for _, v in ipairs(data.animals or {}) do
+    local t = tally[v.species]
+    if not t then t = { label = v.label, penned = 0, out = 0 }; tally[v.species] = t end
+    -- `label` on a view is the SEX name (Cow/Bull); the species name reads
+    -- better on a herd-wide action.
+    t.label = (Config.Animals[v.species] or {}).label or t.label
+    if v.state == 'penned' then t.penned = t.penned + 1 else t.out = t.out + 1 end
+  end
+
+  local actions = {}
+  local order = {}
+  for species in pairs(tally) do order[#order + 1] = species end
+  table.sort(order)
+
+  for _, species in ipairs(order) do
+    local t = tally[species]
+    if t.penned > 0 then
+      actions[#actions + 1] = { id = 'out:' .. species,
+        label = ('Pasture all %s'):format(t.label),
+        description = ('%d in the barn'):format(t.penned) }
+    end
+    if t.out > 0 then
+      actions[#actions + 1] = { id = 'in:' .. species,
+        label = ('Bring in all %s'):format(t.label),
+        description = ('%d afield'):format(t.out) }
+    end
+  end
+
+  if #actions == 0 then
+    exports.sovereign_ui:Notify({ tone = 'info', title = 'Herd Book',
+      message = 'Nothing to move.' })
+    return
+  end
+
+  exports.sovereign_ui:OpenContext({
+    title = 'Move the Herd', actions = actions,
+  }, function(actionId, kind)
+    if kind ~= 'context' or not actionId then return end
+    local dir, species = actionId:match('^(%a+):(.+)$')
+    if dir and species then
+      TriggerServerEvent('sovereign_ranch:server:moveSpecies', species,
+        dir == 'out' and 'out' or 'in')
+    end
+  end)
+end
+
 local function openHerdBook(data)
   local items = {}
+
+  -- Herd-wide moves first: the thing you most often want from this book.
+  items[#items + 1] = {
+    id = '__moves',
+    label = 'Move the Herd',
+    description = 'Pasture or bring in a whole species at once',
+  }
+
   for _, v in ipairs(data.animals or {}) do
     local state = v.state == 'penned' and 'Barn' or (v.state:gsub('^%l', string.upper))
     local badge = v.sick ~= 'healthy' and (' · %s'):format(v.sick:upper()) or ''
@@ -28,7 +88,7 @@ local function openHerdBook(data)
         v.ready and ' · READY' or ''),
     }
   end
-  if #items == 0 then
+  if #(data.animals or {}) == 0 then
     exports.sovereign_ui:Notify({ tone = 'info', title = 'Herd Book',
       message = 'No animals on the books. See the dealer in Valentine.' })
     return
@@ -40,6 +100,7 @@ local function openHerdBook(data)
     items = items,
   }, function(value, kind)
     if kind ~= 'menu' or not value then return end
+    if value == '__moves' then return openHerdMoves(data) end
     local animalId = tonumber(value)
     local view
     for _, v in ipairs(data.animals) do

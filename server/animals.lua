@@ -490,6 +490,23 @@ end
 --- release doesn't stack peds. Unmapped ranches keep the fallback: beside
 --- the releasing member. Either way the releaser must be physically inside
 --- the property (server-verified).
+--- Put an animal on its species' open-ground anchor, scattered a little so
+--- a batch release does not stack peds. Falls back to beside the releaser
+--- when the ranch has no such point mapped. (The client still ground-snaps
+--- and safe-coords whatever we send — never a building interior.)
+function placeForRelease(a, ranch, releaserCoords)
+  local anchor = Ranches.releaseAnchor(ranch.ident, a.species)
+  if anchor then
+    local spread = Config.Wander and Config.Wander.scatter or 2.5
+    local ang = math.random() * 2 * math.pi
+    local dist = 1.0 + math.random() * spread
+    a.pos = { x = anchor.x + math.cos(ang) * dist,
+              y = anchor.y + math.sin(ang) * dist, z = anchor.z }
+  else
+    a.pos = { x = releaserCoords.x + 1.5, y = releaserCoords.y, z = releaserCoords.z }
+  end
+end
+
 function Animals.release(src, animalId)
   local charid = Bridge.GetCharId(src)
   if not charid then return false, Err.NOT_MEMBER end
@@ -510,18 +527,7 @@ function Animals.release(src, animalId)
     return false, Err.BUSY
   end
 
-  -- Open-ground anchor for the species (never a building interior — the
-  -- client still ground-snaps and safe-coords whatever we send).
-  local anchor = Ranches.releaseAnchor(ranch.ident, a.species)
-  if anchor then
-    local spread = Config.Wander and Config.Wander.scatter or 2.5
-    local ang = math.random() * 2 * math.pi
-    local dist = 1.0 + math.random() * spread
-    a.pos = { x = anchor.x + math.cos(ang) * dist,
-              y = anchor.y + math.sin(ang) * dist, z = anchor.z }
-  else
-    a.pos = { x = c.x + 1.5, y = c.y, z = c.z }
-  end
+  placeForRelease(a, ranch, c)
   a.state = State.SPAWNED
   Animals.touch(a)
   -- Honour the result: telling a player their animal is out when nothing
@@ -540,6 +546,84 @@ function Animals.release(src, animalId)
     dir  = compass(pdx, pdy),
     anchored = anchor ~= nil,
   }
+end
+
+-- ============================================================================
+-- Whole-species moves. Turning out twenty head one menu click at a time is
+-- not husbandry, it is data entry — so the Herd Book can move a species at
+-- once. Validated ONCE up front (membership, capability, standing on the
+-- property) rather than per animal, then each head goes through the same
+-- placement the single-animal path uses.
+-- ============================================================================
+
+--- Turn out every penned animal of `species`. Returns (ok, {moved, blocked}),
+--- where `blocked` is how many the spawn cap left in the barn.
+function Animals.releaseSpecies(src, species)
+  local charid = Bridge.GetCharId(src)
+  if not charid then return false, Err.NOT_MEMBER end
+  local m = Members.get(charid)
+  if not m then return false, Err.NOT_MEMBER end
+  local ok, err = Members.can(charid, 'care', m.ranch_id)
+  if not ok then return false, err end
+  local ranch = Ranches.get(m.ranch_id)
+  if not ranch then return false, Err.NO_RANCH end
+  if not Config.Animals[species] then return false, Err.BAD_SPECIES end
+
+  local ped = GetPlayerPed(src)
+  if not ped or ped == 0 then return false, Err.INTERNAL end
+  local c = GetEntityCoords(ped)
+  if not Estate.isInside({ x = c.x, y = c.y, z = c.z }, ranch.ident) then
+    return false, Err.BAD_ARG
+  end
+
+  local cap = Config.MaxSpawnedPerRanch or 40
+  local moved, blocked = 0, 0
+  for _, a in ipairs(Animals.herdOf(ranch.id)) do
+    if a.species == species and a.state == State.PENNED then
+      if Spawns.spawnedCount(ranch.id) >= cap then
+        blocked = blocked + 1
+      else
+        placeForRelease(a, ranch, c)
+        a.state = State.SPAWNED
+        Animals.touch(a)
+        if Spawns.materialise(a, src) then
+          moved = moved + 1
+        else
+          a.state = State.PENNED   -- nothing spawned; do not claim it did
+          Animals.touch(a)
+          blocked = blocked + 1
+        end
+      end
+    end
+  end
+  return true, { moved = moved, blocked = blocked }
+end
+
+--- Bring every loose animal of `species` back in. Positions are saved, so
+--- they come out where the anchor puts them next time, not where they stood.
+function Animals.penSpecies(src, species)
+  local charid = Bridge.GetCharId(src)
+  if not charid then return false, Err.NOT_MEMBER end
+  local m = Members.get(charid)
+  if not m then return false, Err.NOT_MEMBER end
+  local ok, err = Members.can(charid, 'care', m.ranch_id)
+  if not ok then return false, err end
+  local ranch = Ranches.get(m.ranch_id)
+  if not ranch then return false, Err.NO_RANCH end
+  if not Config.Animals[species] then return false, Err.BAD_SPECIES end
+
+  local moved = 0
+  for _, a in ipairs(Animals.herdOf(ranch.id)) do
+    if a.species == species
+      and (a.state == State.SPAWNED or a.state == State.TRANSIT) then
+      Spawns.persistPosition(a)
+      a.state = State.PENNED
+      Animals.touch(a)
+      Spawns.despawn(a)
+      moved = moved + 1
+    end
+  end
+  return true, { moved = moved, blocked = 0 }
 end
 
 --- Pen a spawned animal: current position saved, ped despawned, frozen.

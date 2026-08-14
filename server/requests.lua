@@ -307,6 +307,37 @@ RegisterNetEvent('sovereign_ranch:server:release', function(animalId)
   end
 end)
 
+--- Move a whole species at once. dir = 'out' | 'in'.
+RegisterNetEvent('sovereign_ranch:server:moveSpecies', function(species, dir)
+  local src = source
+  if limited(src, 'movespecies', 2500) then return end
+  species = tostring(species or '')
+  local out = (dir ~= 'in')
+
+  local ok, res = out and Animals.releaseSpecies(src, species)
+    or Animals.penSpecies(src, species)
+  if not ok then
+    if res == Err.BAD_ARG then
+      Notify.toast(src, 'Ranch', T('must_be_on_ranch'), 'warn')
+    else
+      fail(src, res)
+    end
+    return
+  end
+
+  local label = (Config.Animals[species] or {}).label or species
+  if res.moved == 0 then
+    Notify.toast(src, 'Ranch', T(out and 'none_to_pasture' or 'none_to_pen', label), 'info')
+  elseif out then
+    Notify.card(src, 'Ranch', T('pastured_all', res.moved, label))
+    if res.blocked > 0 then
+      Notify.toast(src, 'Ranch', T('pasture_capped', res.blocked), 'warn')
+    end
+  else
+    Notify.card(src, 'Ranch', T('penned_all', res.moved, label))
+  end
+end)
+
 RegisterNetEvent('sovereign_ranch:server:pen', function(animalId)
   local src = source
   if limited(src, 'penrelease', 1000) then return end
