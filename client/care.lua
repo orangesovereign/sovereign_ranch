@@ -171,6 +171,10 @@ local function ensurePrompt(label)
     key = 'INPUT_ENTER',
     label = label,
     mode = 'hold', holdTime = 800,
+    -- GROUPED is the library's live-verified path (INTERACT-LEDGER rows
+    -- 239/247-8: group header + range-gated activation). Ungrouped is
+    -- documented but was never proven in-game — see the dealer prompt.
+    group = 'ranch_animal', groupLabel = 'Livestock',
     onComplete = function()
       if nearId then openTend(nearId) end
     end,

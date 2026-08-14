@@ -91,6 +91,7 @@ end, false)
 -- ============================================================================
 
 local dealerPed = nil
+local dealerPrompt = nil
 
 local function fmtDollars(cents)
   return ('$%.2f'):format((tonumber(cents) or 0) / 100)
@@ -173,11 +174,18 @@ CreateThread(function()
 
   local at = vector3(d.coords.x, d.coords.y, d.coords.z)
 
-  sv.interact.prompt({
+  -- GROUPED, deliberately: the library's INTERACT ledger verified grouped
+  -- prompts live (shared header + range-gated group activation), while the
+  -- ungrouped-with-context-point path is documented but unproven — and an
+  -- ungrouped dealer prompt did not draw at all on this server (live
+  -- finding 2026-08-13). The group activation is what actually shows a
+  -- context-culled prompt; the library range-gates it for us.
+  dealerPrompt = sv.interact.prompt({
     key = 'INPUT_ENTER',
     label = d.promptLabel or 'Speak with the Dealer',
     mode = 'hold', holdTime = 600,
-    coords = at, radius = 2.5,
+    coords = at, radius = 3.0,
+    group = 'ranch_dealer', groupLabel = 'Livestock Dealer',
     onComplete = function()
       TriggerServerEvent('sovereign_ranch:server:requestDealer')
     end,
@@ -221,3 +229,38 @@ AddEventHandler('onResourceStop', function(res)
   if res ~= GetCurrentResourceName() then return end
   if dealerPed and DoesEntityExist(dealerPed) then DeleteEntity(dealerPed) end
 end)
+
+-- ============================================================================
+-- /sr_prompts — client diagnostic (read-only, prints to F8). Answers the
+-- questions guessing cannot: is the prompt registered at all, is the ped
+-- there, and how far away am I from the point the engine culls against?
+-- ============================================================================
+
+RegisterCommand('sr_prompts', function()
+  local d = Config.Market and Config.Market.dealer
+  print('--- sovereign_ranch prompt diagnostic ---')
+  if not d then
+    print('  Config.Market.dealer is NIL — config/market.lua not loaded client-side')
+    return
+  end
+  print(('  dealer: enabled=%s surveyed=%s model=%s')
+    :format(tostring(d.enabled), tostring(d.surveyed), tostring(d.model)))
+  print(('  dealer point: %.2f %.2f %.2f'):format(d.coords.x, d.coords.y, d.coords.z))
+
+  local c = GetEntityCoords(PlayerPedId(), true, true)
+  local dx, dy, dz = c.x - d.coords.x, c.y - d.coords.y, c.z - d.coords.z
+  print(('  you: %.2f %.2f %.2f  → distance %.2fm (prompt radius 3.0)')
+    :format(c.x, c.y, c.z, math.sqrt(dx * dx + dy * dy + dz * dz)))
+
+  print(('  dealer prompt object: %s | valid: %s')
+    :format(dealerPrompt and 'created' or 'NIL — the spawn thread never reached it',
+            dealerPrompt and tostring(dealerPrompt:isValid()) or 'n/a'))
+  print(('  dealer ped: %s'):format(
+    dealerPed and DoesEntityExist(dealerPed) and 'spawned' or 'not spawned'))
+  print(('  prompts owned by this resource: %d'):format(sv.interact.count()))
+
+  local n = 0
+  for _ in pairs(RanchHerd or {}) do n = n + 1 end
+  print(('  animals known to this client: %d'):format(n))
+  print('----------------------------------------')
+end, false)
