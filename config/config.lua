@@ -104,24 +104,36 @@ Config.Scatter = {
   restorePerTick = 25,
 }
 
--- Care animations (docs/animations-reference.md — scenario TYPES verified
--- in the rdr3_discoveries dumps; judged live via /sr_anim + ledger gate
--- VIII, swap losers here without touching code). Per-verb: species keys
--- override `default`; `duration` drives both the scenario and the
--- sv.progress bar; anything not in FemaleSafe falls back to `fallback`
--- on female peds (male-only anims silently skip — medical's precedent).
+-- Care animations. ⚠ THESE ARE AUDITION RESULTS, not guesses — gate VIII
+-- was run live on 2026-08-13 and most of the obvious-sounding scenarios
+-- FAILED. The rule it taught us (recorded in docs/animations-reference.md):
+--
+--   Scenarios in the WORLD_PLAYER_CHORES_* family, and the *_PICKUP /
+--   *_PUTDOWN transitions, are SCENARIO-POINT scenarios. They expect a
+--   real map point with an associated prop and DO NOT work played in
+--   place — they either do nothing or conjure a prop and weld it to you.
+--   Plain ambient WORLD_HUMAN_* scenarios do work in place.
+--
+-- Only names confirmed working in-game appear below. Swap freely, but
+-- re-audition with /sr_anim before trusting anything new.
 Config.CareAnims = {
-  fallback = 'WORLD_HUMAN_CROUCH_INSPECT',   -- game-proven (herbs/realestate)
-  feed  = { duration = 5000, default = 'WORLD_HUMAN_FEEDBAG_PUTDOWN',
-            chicken = 'WORLD_HUMAN_FEED_CHICKEN', pig = 'WORLD_HUMAN_FEED_PIGS' },
-  water = { duration = 5000, default = 'WORLD_PLAYER_CHORES_BUCKET_POUR_LOW' },
-  brush = { duration = 6000, default = 'WORLD_HUMAN_HORSE_TEND_BRUSH_LINK' }, -- ⚠ paired candidate: gate VIII rules on it
+  fallback = 'WORLD_HUMAN_CROUCH_INSPECT',        -- proven: herbs, realestate, gate VIII
+  feed  = { duration = 5000,
+            default = 'WORLD_HUMAN_FEED_PIGS',    -- proven; a slop-toss reads right at a trough
+            chicken = 'WORLD_HUMAN_FEED_CHICKEN' },  -- proven; the exact scatter motion
+  -- ⚠ every bucket scenario failed the audition, so watering has no
+  -- purpose-built animation. Kneeling at the trough is the honest stand-in
+  -- until a hand-rolled anim-dict + our own bucket prop is built.
+  water = { duration = 5000, default = 'WORLD_HUMAN_CROUCH_INSPECT' },
+  -- ⚠ HORSE_TEND_BRUSH_LINK failed (it is a paired scenario and wants a
+  -- horse partner). Falling back until the raw dict is prototyped.
+  brush = { duration = 6000, default = 'WORLD_HUMAN_CROUCH_INSPECT' },
   treat = { duration = 4000, default = 'WORLD_HUMAN_CROUCH_INSPECT' },
 }
-Config.FemaleSafeAnims = {   -- carry FEMALE_A conditional anims in the dumps
-  WORLD_HUMAN_FEED_CHICKEN = true,
-  WORLD_HUMAN_FEEDBAG_PICKUP = true,
-  WORLD_HUMAN_FEEDBAG_PUTDOWN = true,
+-- Male-only scenarios silently do nothing on a female ped, so anything not
+-- listed here falls back. FEED_PIGS is male-listed in the dumps.
+Config.FemaleSafeAnims = {
+  WORLD_HUMAN_FEED_CHICKEN   = true,
   WORLD_HUMAN_CROUCH_INSPECT = true,
 }
 

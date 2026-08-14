@@ -21,6 +21,7 @@ Config.Animals = {
     label   = 'Cattle',
     models  = { f = 'a_c_cow', m = 'a_c_bull_01' },        -- verify Phase 1
     sexLabels = { f = 'Cow', m = 'Bull' },
+    pen     = 'pasture',   -- which mapped point in config/ranches.lua
     scenarios = {
       f = { graze = 'WORLD_ANIMAL_COW_GRAZING',
             eat   = 'WORLD_ANIMAL_COW_EATING_GROUND',
@@ -40,6 +41,7 @@ Config.Animals = {
     label   = 'Pigs',
     models  = { f = 'a_c_pig_01', m = 'a_c_pig_01' },      -- sex variant check Phase 1
     sexLabels = { f = 'Sow', m = 'Boar' },
+    pen     = 'stockPen',
     scenarios = {   -- no pig DRINK scenario exists in the dumps; grazing reads fine
       any = { graze = 'WORLD_ANIMAL_PIG_GRAZING',
               eat   = 'WORLD_ANIMAL_PIG_GRAZING',
@@ -55,6 +57,7 @@ Config.Animals = {
     label   = 'Sheep',
     models  = { f = 'a_c_sheep_01', m = 'a_c_sheep_01' },  -- ram variant check Phase 1
     sexLabels = { f = 'Ewe', m = 'Ram' },
+    pen     = 'pasture',
     -- ⚠ NO WORLD_ANIMAL_SHEEP_* scenario exists in the dumps (searched
     -- 2026-08-13). Sheep walk to the trough and stand rather than graze.
     -- Auditioning the goat scenarios on a sheep ped is a /sr_anim job —
@@ -70,6 +73,7 @@ Config.Animals = {
     label   = 'Goats',
     models  = { f = 'a_c_goat_01', m = 'a_c_goat_01' },    -- buck variant check Phase 1
     sexLabels = { f = 'Doe', m = 'Buck' },
+    pen     = 'stockPen',
     scenarios = {   -- the DOMESTIC variants exist precisely for farm goats
       any = { graze = 'WORLD_ANIMAL_GOAT_GRAZING_DOMESTIC',
               eat   = 'WORLD_ANIMAL_GOAT_GRAZING_DOMESTIC',
@@ -85,6 +89,8 @@ Config.Animals = {
     label   = 'Chickens',
     models  = { f = 'a_c_chicken_01', m = 'a_c_rooster_01' }, -- verify Phase 1
     sexLabels = { f = 'Chicken', m = 'Rooster' },
+    pen     = 'chickenPen',
+    penAlt  = 'coop',   -- unmapped chickenPen: the coop will do
     scattered = true,   -- fed by scattering on the ground, never a trough
     scenarios = {
       f = { graze = 'WORLD_ANIMAL_CHICKEN_EATING',

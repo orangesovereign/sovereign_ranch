@@ -16,9 +16,15 @@
   all, so the barn interior is useless as a spawn point.
 
     OPEN-GROUND points — animals SPAWN and ROAM here. Survey these in
-    the open, on walkable ground, clear of eaves, fences and props:
-      pasture     release + roam anchor for cattle, pigs, sheep, goats
-      chickenPen  release + roam anchor for chickens/roosters
+    the open, on walkable ground, clear of eaves, fences and props.
+    WHICH species uses which pen is set per species in
+    config/animals.lua (`pen`), so a property with more pens than these
+    just needs another key here and a name there — no code:
+      pasture     cattle and sheep (the corral)
+      stockPen    pigs and goats
+      chickenPen  chickens and roosters
+    A species whose named pen is not mapped falls back to `pasture`,
+    then to `barn`.
 
     ⚠ GIVE EVERY OPEN-GROUND POINT A `radius` — this is the PEN ZONE, and
     it is what stops animals walking into fences (live finding
@@ -67,5 +73,9 @@ Config.Ranches = {
     -- never spawned at all). This one sits ~16 m from the barn.
     pasture    = { x = -1582.00, y = -1422.33, z = 81.40, h = 255.40, radius = 12.0 },
     chickenPen = { x = -1583.32, y = -1397.58, z = 81.80, h = 164.40, radius = 5.0 },
+    -- Pig & goat pen (surveyed 2026-08-14). Sits 11 m off the barn and
+    -- 24 m from the corral centre, so the zone is kept tight: any bigger
+    -- and it would reach the barn wall or bleed into the pasture circle.
+    stockPen   = { x = -1605.84, y = -1420.87, z = 81.83, h = 49.94, radius = 7.0 },
   },
 }

@@ -41,6 +41,39 @@ function RanchPlayScenario(ped, name, durationMs)
   return true
 end
 
+--- Delete every object attached to the player, full stop.
+---
+--- Scenario props are game-owned objects parented to the ped. The polite
+--- outro is supposed to stow them, but a scenario that never properly
+--- STARTED has no outro to play — and the audition (2026-08-13) found
+--- several that conjure a prop and leave it welded to the player for the
+--- rest of the session. So we do not rely on the outro alone: after every
+--- scenario we sweep the object pool and delete anything hanging off the
+--- ped. GET_GAME_POOL is a shared CFX native (verified available in RedM).
+--- Natives: GET_ENTITY_ATTACHED_TO 0x56D713888A566481,
+--- SET_ENTITY_AS_MISSION_ENTITY 0xDC19C288082E586E (claim it before
+--- deleting a game-owned object), DELETE_ENTITY 0x4CD38C78BD19A497.
+function RanchClearAttachedProps()
+  local ped = PlayerPedId()
+  if not ped or ped == 0 then return 0 end
+  local ok, pool = pcall(function() return GetGamePool('CObject') end)
+  if not ok or type(pool) ~= 'table' then return 0 end
+
+  local removed = 0
+  for _, obj in ipairs(pool) do
+    if DoesEntityExist(obj) and GetEntityAttachedTo(obj) == ped then
+      pcall(function()
+        DetachEntity(obj, true, true)
+        SetEntityAsMissionEntity(obj, true, true)
+        local handle = obj
+        DeleteEntity(handle)
+      end)
+      removed = removed + 1
+    end
+  end
+  return removed
+end
+
 --- End a scenario CLEANLY: ask for the outro, wait for the ped to actually
 --- leave it (that is when the prop is put away), and only escalate if it
 --- refuses. Escalating without waiting is the bug this function exists to
@@ -76,6 +109,13 @@ function RanchEndScenario(ped)
   end
 
   ClearPedTasks(ped, true, true)
+
+  -- The outro is best-effort; this is the guarantee. Nothing this resource
+  -- plays leaves anything in the player's hands.
+  local dropped = RanchClearAttachedProps()
+  if dropped > 0 then
+    print(('[sovereign_ranch] cleared %d stranded prop(s)'):format(dropped))
+  end
 end
 
 --- The whole shape of a timed, animated chore: play the scenario, run a
@@ -116,7 +156,9 @@ RegisterCommand('sr_unstick', function()
     local ped = PlayerPedId()
     RanchEndScenario(ped)
     pcall(function() Citizen.InvokeNative(0xAAA34F8A7CB32098, ped, false, false) end)
-    print('[sovereign_ranch] /sr_unstick: scenario cleared')
+    local dropped = RanchClearAttachedProps()
+    print(('[sovereign_ranch] /sr_unstick: scenario cleared, %d prop(s) removed')
+      :format(dropped))
   end)
 end, false)
 
