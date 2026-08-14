@@ -380,6 +380,7 @@ end, false)
 
 local dealerPed = nil
 local dealerPrompt = nil
+local dealerState = {}   -- { ped = } owned by RanchScenicPed
 
 local function openDealer(data)
   local items = {}
@@ -475,43 +476,21 @@ CreateThread(function()
     end,
   })
 
+  -- Shared spawner (client/anim.lua): dressed, frozen, untargetable, and
+  -- self-repairing. Three hand-rolled copies of this is how the exporter
+  -- ended up with a prompt and no ped.
   while true do
-    local dist = #(GetEntityCoords(PlayerPedId(), true, true) - at)
-    if dist < 120.0 and not dealerPed then
-      local model = GetHashKey(d.model)
-      if IsModelValid(model) then
-        RequestModel(model, false)
-        local tries = 0
-        while not HasModelLoaded(model) and tries < 100 do Wait(50) tries = tries + 1 end
-        if HasModelLoaded(model) then
-          local ped = CreatePed(model, at.x, at.y, at.z, d.coords.h or 0.0, false, true, true, true)
-          local waits = 0
-          while not DoesEntityExist(ped) and waits < 40 do Wait(50) waits = waits + 1 end
-          SetModelAsNoLongerNeeded(model)
-          if DoesEntityExist(ped) then
-            SetEntityCoordsNoOffset(ped, at.x, at.y, at.z, false, false, false)
-            SetEntityHeading(ped, d.coords.h or 0.0)
-            RanchDress(ped)
-            SetEntityVisible(ped, true)
-            SetEntityInvincible(ped, true)
-            SetBlockingOfNonTemporaryEvents(ped, true)
-            FreezeEntityPosition(ped, true)
-            SetPedCanBeTargetted(ped, false)
-            dealerPed = ped
-          end
-        end
-      end
-    elseif dist >= 150.0 and dealerPed then
-      if DoesEntityExist(dealerPed) then DeleteEntity(dealerPed) end
-      dealerPed = nil
-    end
+    RanchScenicPed(dealerState, d.coords, d.model)
+    dealerPed = dealerState.ped
     Wait(2000)
   end
 end)
 
 AddEventHandler('onResourceStop', function(res)
   if res ~= GetCurrentResourceName() then return end
-  if dealerPed and DoesEntityExist(dealerPed) then DeleteEntity(dealerPed) end
+  if dealerState.ped and DoesEntityExist(dealerState.ped) then
+    DeleteEntity(dealerState.ped)
+  end
 end)
 
 -- ============================================================================

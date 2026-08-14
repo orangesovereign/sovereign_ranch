@@ -222,6 +222,8 @@ end)
 -- ============================================================================
 
 RanchManagerPed = nil   -- global: /sr_prompts reports on it from menus.lua
+local managerState  = {}   -- { ped = } owned by RanchScenicPed
+local exporterState = {}
 
 CreateThread(function()
   while true do
@@ -234,37 +236,17 @@ CreateThread(function()
            or select(1, pointNear(GetEntityCoords(PlayerPedId(), true, true),
                                   cfg.point or 'manager')))
     if p then
-      local pc = GetEntityCoords(PlayerPedId(), true, true)
-      local dx, dy = pc.x - p.x, pc.y - p.y
-      local near = (dx * dx + dy * dy) < 14400.0    -- 120m
-      if near and not RanchManagerPed then
-        local model = GetHashKey(cfg.model)
-        if IsModelValid(model) then
-          RequestModel(model, false)
-          local tries = 0
-          while not HasModelLoaded(model) and tries < 100 do Wait(50); tries = tries + 1 end
-          if HasModelLoaded(model) then
-            local ped = CreatePed(model, p.x, p.y, p.z, p.h or 0.0, false, true, true, true)
-            local waits = 0
-            while not DoesEntityExist(ped) and waits < 40 do Wait(50); waits = waits + 1 end
-            SetModelAsNoLongerNeeded(model)
-            if DoesEntityExist(ped) then
-              SetEntityCoordsNoOffset(ped, p.x, p.y, p.z, false, false, false)
-              SetEntityHeading(ped, p.h or 0.0)
-              RanchDress(ped)                      -- the standing rule
-              SetEntityInvincible(ped, true)
-              SetBlockingOfNonTemporaryEvents(ped, true)
-              FreezeEntityPosition(ped, true)
-              SetPedCanBeTargetted(ped, false)
-              RanchManagerPed = ped
-            end
-          end
-        end
-      elseif not near and RanchManagerPed then
-        if DoesEntityExist(RanchManagerPed) then DeleteEntity(RanchManagerPed) end
-        RanchManagerPed = nil
-      end
+      RanchScenicPed(managerState, p, cfg.model)
+      RanchManagerPed = managerState.ped     -- /sr_prompts reports on it
     end
+
+    -- The meat exporter in town. He shipped with a prompt and NO spawner —
+    -- which is what "the exporter is invisible" actually was: nobody there.
+    local exp = Config.Market and Config.Market.export
+    if exp and exp.enabled and exp.surveyed and exp.coords then
+      RanchScenicPed(exporterState, exp.coords, exp.model)
+    end
+
     Wait(wait)
   end
 end)
@@ -272,5 +254,7 @@ end)
 AddEventHandler('onResourceStop', function(res)
   if res ~= GetCurrentResourceName() then return end
   dropPrompt()
-  if RanchManagerPed and DoesEntityExist(RanchManagerPed) then DeleteEntity(RanchManagerPed) end
+  for _, s in ipairs({ managerState, exporterState }) do
+    if s.ped and DoesEntityExist(s.ped) then DeleteEntity(s.ped) end
+  end
 end)

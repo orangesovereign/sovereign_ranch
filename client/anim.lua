@@ -19,6 +19,63 @@
     IS_PED_MALE                              0x6D9F5FAA7488BA46 (Ped) → BOOL
 ]]
 
+-- ============================================================================
+-- Fixed scenery peds — the ranch manager, the livestock dealer, the meat
+-- exporter. Every one of them is the same job: stream in near the player,
+-- stand still, be un-shootable, and above all be DRESSED (an undressed
+-- RDR3 ped renders invisible — the standing rule since Phase 0).
+--
+-- This lives here because three copies of it is how the exporter shipped
+-- with no spawner at all: the prompt was there, nobody was.
+--
+-- `state` is a table the caller owns: { ped = nil }. Call every few
+-- seconds; it spawns, despawns and repairs as the player comes and goes.
+-- ============================================================================
+function RanchScenicPed(state, spot, model, streamRange)
+  if not (state and spot and model) then return end
+  local range = streamRange or 120.0
+  local pc = GetEntityCoords(PlayerPedId(), true, true)
+  local dx, dy = pc.x - spot.x, pc.y - spot.y
+  local near = (dx * dx + dy * dy) < (range * range)
+
+  -- Gone missing (streamed out, killed, cleaned up by something else)?
+  if state.ped and not DoesEntityExist(state.ped) then state.ped = nil end
+
+  if near and not state.ped then
+    local hash = GetHashKey(model)
+    if not IsModelValid(hash) then
+      if not state.warned then
+        state.warned = true
+        print(('[sovereign_ranch] scenic ped model %s is not valid'):format(tostring(model)))
+      end
+      return
+    end
+    RequestModel(hash, false)
+    local tries = 0
+    while not HasModelLoaded(hash) and tries < 100 do Wait(50); tries = tries + 1 end
+    if not HasModelLoaded(hash) then return end
+
+    local ped = CreatePed(hash, spot.x, spot.y, spot.z, spot.h or 0.0, false, true, true, true)
+    local waits = 0
+    while not DoesEntityExist(ped) and waits < 40 do Wait(50); waits = waits + 1 end
+    SetModelAsNoLongerNeeded(hash)
+    if not DoesEntityExist(ped) then return end
+
+    SetEntityCoordsNoOffset(ped, spot.x, spot.y, spot.z, false, false, false)
+    SetEntityHeading(ped, spot.h or 0.0)
+    RanchDress(ped)                     -- or he is invisible; non-negotiable
+    SetEntityInvincible(ped, true)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    FreezeEntityPosition(ped, true)
+    SetPedCanBeTargetted(ped, false)
+    state.ped = ped
+
+  elseif not near and state.ped then
+    if DoesEntityExist(state.ped) then DeleteEntity(state.ped) end
+    state.ped = nil
+  end
+end
+
 --- The scenario name + duration for a care verb, with the female-safety
 --- rule applied (male-only scenarios silently do nothing on a female ped,
 --- so those fall back to the proven one). Shared by care and troughs.
