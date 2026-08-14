@@ -114,7 +114,7 @@
 | Menus/inputs/confirms/minigames | sovereign_ui exports (see §1.9) |
 | Focus/keybinds/artifact cleanup | `sv` kernel (focus stack, controls arbiter, ownership registry, raw keymaps) |
 | In-world prompts / 3D text / markers | **`sv.interact`** — functional as of Aug 13 (press/hold/mash prompts, engine distance culling, groups, onComplete, owned cleanup; `text3d`; `marker`) |
-| Storage | vorp_inventory (= sovereign_inventory renamed): `registerInventory` — `limit` is **slots**, not weight |
+| Storage | **Split by ownership [ruling 2026-08-14]:** general property storage is realestate's stash at the deed — not ours, never duplicated. The ranch registers only **husbandry-specific** containers (the egg-only coop basket; a milk house or tack room later) via vorp_inventory `registerInventory` — `limit` is **slots**, not weight; `whitelistItems` + `limitedItems` enforce what a container may hold. Rule of thumb: if it would make sense on a house, it is realestate's. |
 | sovereign lib status | Kernel verified live 13 Aug 2026 (loader, ownership, focus, controls, logger, UI seam) **+ `sv.interact` prompts/text3d/markers now functional**. Not yet built: NUI bus, point/zone scheduler — don't depend on those |
 
 ---

@@ -220,18 +220,23 @@ Config.Production = {
 }
 
 -- ============================================================================
--- STORES — containers that belong to the PROPERTY, opened at a mapped
--- point, shared by the whole crew.
+-- STORES — the ranch's WORKING containers.
 --
--- The coop is the one that matters most: hens lay whether anyone is
--- watching or not, so their eggs land in the coop basket by themselves
--- and a hand collects them from there [Wilbur ruling 2026-08-14]. It only
--- ever holds eggs — `only` is a whitelist, so a coop cannot be used as a
--- second saddlebag.
+-- ⚠ THE BOUNDARY [Wilbur ruling 2026-08-14]: general property storage is
+-- sovereign_realestate's — it already gives every owned property a stash
+-- at the deed, and we do not duplicate or replace it. What lives here is
+-- only the husbandry-specific kit: containers tied to an ANIMAL FUNCTION,
+-- which realestate has no business knowing about. If a container would
+-- make sense on a house, it belongs to realestate, not us.
 --
--- Adding a store (a milk house, a tack room) is a config entry plus a
+-- The coop is the case in point: hens lay whether anyone is watching or
+-- not, so their eggs land in the basket by themselves and a hand collects
+-- them from there. It only ever holds eggs — `only` is a whitelist, so a
+-- coop cannot quietly become a second saddlebag.
+--
+-- Adding one (a milk house, a tack room) is a config entry plus a
 -- surveyed point. `point` names a key in config/ranches.lua; `fallback`
--- is used when that point is not surveyed yet.
+-- is used when that point has not been surveyed yet.
 -- ============================================================================
 Config.Stores = {
   coop = {
@@ -240,13 +245,6 @@ Config.Stores = {
     prompt   = 'Egg Basket',
     slots    = 20,
     only     = { eggs = 500 },    -- item -> max units. Eggs and nothing else.
-  },
-  store = {
-    point    = 'store',           -- optional; survey it for a proper larder
-    fallback = 'barn',            -- until then, the barn serves
-    label    = 'Ranch Store',
-    prompt   = 'Ranch Store',
-    slots    = 60,
   },
 }
 

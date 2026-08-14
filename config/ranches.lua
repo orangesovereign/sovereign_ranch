@@ -38,9 +38,13 @@
     wrong for a small pen.
 
     STRUCTURE points — interaction anchors only, never spawn points
-    (Phase 2 hangs the butcher/product/egg stations off these):
+    (Phase 2 hangs the butcher station off `barn` and the egg basket off
+    `coop`):
       barn        the barn building
       coop        the coop building
+
+    ⚠ General property storage is sovereign_realestate's stash at the
+    deed, not ours. Only husbandry-specific containers live here.
 
   Release falls back structure-ward only if no open-ground point is
   mapped (pasture → barn, chickenPen → coop → pasture), and the client

@@ -149,7 +149,7 @@ end)
 RegisterNetEvent('sovereign_ranch:server:openStore', function(key)
   local src = source
   if limited(src, 'store', 1000) then return end
-  local ok, err = Production.openStore(src, tostring(key or 'store'))
+  local ok, err = Production.openStore(src, tostring(key or 'coop'))
   if not ok then fail(src, err) end
 end)
 
