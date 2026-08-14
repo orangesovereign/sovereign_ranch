@@ -285,6 +285,12 @@ RegisterNetEvent('sovereign_ranch:client:manager', function(data)
       description = 'Meat, hide and tallow — it cannot be undone' }
   end
 
+  -- The manager is the hub, so everything the Herd Book does is reachable
+  -- from him too: the whole herd, moving a species, renaming, penning.
+  -- /herdbook stays as the shortcut for hands out in the field.
+  actions[#actions + 1] = { id = 'herd', label = 'Herd Book',
+    description = 'Every animal on the books — move, name, pen' }
+
   exports.sovereign_ui:OpenContext({
     title = 'Ranch Manager', actions = actions,
   }, function(actionId, kind)
@@ -303,6 +309,9 @@ RegisterNetEvent('sovereign_ranch:client:manager', function(data)
       openManagerStock(data)
     elseif actionId == 'butcher' then
       RanchHerdBookMode = 'butcher'
+      TriggerServerEvent('sovereign_ranch:server:requestHerd')
+    elseif actionId == 'herd' then
+      RanchHerdBookMode = nil   -- plain book, not the butcher's list
       TriggerServerEvent('sovereign_ranch:server:requestHerd')
     end
   end)
@@ -359,6 +368,9 @@ RegisterNetEvent('sovereign_ranch:client:prices', function(data)
 end)
 
 RegisterCommand('herdbook', function()
+  -- Always the plain book: a butcher session that was abandoned must not
+  -- leave the next /herdbook armed to slaughter.
+  RanchHerdBookMode = nil
   TriggerServerEvent('sovereign_ranch:server:requestHerd')
 end, false)
 
