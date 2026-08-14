@@ -27,7 +27,36 @@ VALUES
 
     ('ranch_feed', 'Feed Bag', 20, 'item_standard', 0, 1,
      'A coarse sack of mixed grain and hay. Keeps a working animal fed when the pasture is thin.',
-     0.50, 1, 1, '{}')
+     0.50, 1, 1, '{}'),
+
+    -- Phase 2 produce. Ingredients for sovereign_crafting as much as goods
+    -- for the buyer, so all are freely tradeable between players.
+    ('ranch_milk', 'Milk', 20, 'item_standard', 0, 1,
+     'A pail of fresh milk, still warm from the cow.', 0.60, 1, 1, '{}'),
+    ('ranch_goat_milk', 'Goat''s Milk', 20, 'item_standard', 0, 1,
+     'Richer and sharper than cow''s milk. The cheesemakers pay well for it.', 0.55, 1, 1, '{}'),
+    ('ranch_egg', 'Eggs', 40, 'item_standard', 0, 1,
+     'Gathered this morning, straw still stuck to the shells.', 0.10, 1, 1, '{}'),
+    ('ranch_wool', 'Wool', 30, 'item_standard', 0, 1,
+     'A greasy bundle of fleece, fresh off the shears.', 0.40, 1, 1, '{}'),
+    ('ranch_manure', 'Manure', 30, 'item_standard', 0, 1,
+     'Well-rotted muck. Unpleasant company, but there is no better fertiliser.', 0.70, 1, 1, '{}'),
+
+    -- Butcher outputs.
+    ('ranch_beef', 'Beef', 30, 'item_standard', 0, 1,
+     'Heavy cuts of beef, trimmed and ready for the smokehouse.', 0.80, 1, 1, '{}'),
+    ('ranch_pork', 'Pork', 30, 'item_standard', 0, 1,
+     'Fresh pork. Salt it, smoke it, or sell it before it turns.', 0.75, 1, 1, '{}'),
+    ('ranch_mutton', 'Mutton', 30, 'item_standard', 0, 1,
+     'Strong-flavoured meat off a sheep or goat.', 0.70, 1, 1, '{}'),
+    ('ranch_poultry', 'Poultry', 30, 'item_standard', 0, 1,
+     'A plucked and dressed bird.', 0.35, 1, 1, '{}'),
+    ('ranch_hide', 'Hide', 20, 'item_standard', 0, 1,
+     'A raw hide, salted against the rot. The tanners will want it.', 1.20, 1, 1, '{}'),
+    ('ranch_tallow', 'Tallow', 20, 'item_standard', 0, 1,
+     'Rendered fat, set hard in a crock. Candles, soap and grease.', 0.50, 1, 1, '{}'),
+    ('ranch_feathers', 'Feathers', 40, 'item_standard', 0, 1,
+     'A bundle of feathers, good for bedding and fletching.', 0.05, 1, 1, '{}')
 
 ON DUPLICATE KEY UPDATE
     `label`      = VALUES(`label`),

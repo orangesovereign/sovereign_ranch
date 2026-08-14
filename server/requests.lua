@@ -128,6 +128,92 @@ RegisterNetEvent('sovereign_ranch:server:requestTroughs', function()
 end)
 
 -- ============================================================================
+-- Production (Phase 2): collect, shovel, butcher, sell
+-- ============================================================================
+
+RegisterNetEvent('sovereign_ranch:server:collect', function(animalId)
+  local src = source
+  if limited(src, 'collect', 1500) then return end
+  local ok, res = Production.collect(src, animalId)
+  if ok then
+    Notify.card(src, 'Ranch', T('collected', res.count, ItemLabel(res.item)))
+  elseif res == Err.COOLDOWN then
+    Notify.toast(src, 'Ranch', T('nothing_to_collect'), 'info')
+  elseif res == Err.BAD_ARG then
+    Notify.toast(src, 'Ranch', T('care_too_far'), 'warn')
+  else
+    fail(src, res)
+  end
+end)
+
+RegisterNetEvent('sovereign_ranch:server:shovel', function(index)
+  local src = source
+  if limited(src, 'shovel', 1500) then return end
+  local ok, res = Production.shovel(src, index)
+  if ok then
+    Notify.card(src, 'Ranch', T('collected', res.count, ItemLabel(res.item)))
+  else
+    fail(src, res)
+  end
+end)
+
+RegisterNetEvent('sovereign_ranch:server:butcher', function(animalId)
+  local src = source
+  if limited(src, 'butcher', 3000) then return end
+  local ok, res = Production.butcher(src, animalId)
+  if not ok then return fail(src, res) end
+  local parts = {}
+  for _, line in ipairs(res) do
+    parts[#parts + 1] = ('%d %s'):format(line.count, ItemLabel(line.item))
+  end
+  Notify.card(src, T('butchered_title'),
+    #parts > 0 and table.concat(parts, ', ') or T('butchered_nothing'), 'warn')
+end)
+
+RegisterNetEvent('sovereign_ranch:server:sell', function(kind)
+  local src = source
+  if limited(src, 'sell', 2000) then return end
+  kind = (kind == 'export') and 'export' or 'produce'
+  local ok, res = Selling.sellAll(src, kind)
+  if ok then
+    Notify.card(src, T('sold_title'), T('sold_total', FmtMoney(res.total)))
+  elseif res == Err.BAD_ARG then
+    Notify.toast(src, 'Ranch', T('nothing_to_sell'), 'info')
+  else
+    fail(src, res)
+  end
+end)
+
+RegisterNetEvent('sovereign_ranch:server:sellBirds', function(count)
+  local src = source
+  if limited(src, 'sellbirds', 2000) then return end
+  local ok, res = Selling.sellLiveBirds(src, count)
+  if ok then
+    Notify.card(src, T('sold_title'), T('sold_birds', res.count, FmtMoney(res.total)))
+  else
+    fail(src, res)
+  end
+end)
+
+--- What a counter pays, for the menu. Config-derived, server-served.
+RegisterNetEvent('sovereign_ranch:server:requestPrices', function(kind)
+  local src = source
+  if limited(src, 'prices', 1000) then return end
+  kind = (kind == 'export') and 'export' or 'produce'
+  local prices = (kind == 'export') and Selling.exportPrices() or Selling.producePrices()
+  local rows = {}
+  for item, unit in pairs(prices) do
+    rows[#rows + 1] = { item = item, label = ItemLabel(item),
+                        unit = unit, held = Bridge.GetItemCount(src, item) }
+  end
+  table.sort(rows, function(a, b) return a.label < b.label end)
+  TriggerClientEvent('sovereign_ranch:client:prices', src, {
+    kind = kind, rows = rows,
+    liveBirds = kind == 'produce' and (Config.Animals.chicken or {}).sellLive or nil,
+  })
+end)
+
+-- ============================================================================
 -- Herd Book actions
 -- ============================================================================
 
@@ -183,6 +269,12 @@ RegisterNetEvent('sovereign_ranch:server:requestHerd', function()
     animals = Animals.herdView(m.ranch_id),
     grade = m.grade,
   })
+  -- The mapped points travel with it: the butcher station and the produce
+  -- counter are per-property, so the client cannot know them from config.
+  if ranch then
+    TriggerClientEvent('sovereign_ranch:client:points', src,
+      Ranches.pointsOf(ranch.ident))
+  end
 end)
 
 -- ============================================================================

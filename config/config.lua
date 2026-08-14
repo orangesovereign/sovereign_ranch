@@ -184,6 +184,39 @@ Config.FollowPace = {
 }
 
 -- ============================================================================
+-- PRODUCTION (Phase 2). Readiness is passive and earned: an animal only
+-- accrues toward its next product while it is fed, watered and healthy —
+-- neglect does not just risk the animal, it stops the income. Collection
+-- itself is an active interaction the server validates.
+-- ============================================================================
+Config.Production = {
+  needThreshold  = 50,    -- both hunger and thirst must be at least this to accrue
+  requireHealthy = true,  -- sick or critical animals produce nothing
+  collectRange   = 4.0,   -- metres, server-checked against the animal's ped
+  collectSeconds = 5,     -- the collection action's duration
+  -- Life stage scales BUTCHER yields (Phase 3 sets real stages; until then
+  -- everything reads as 'prime'). Product yields are unaffected.
+  stageYield = { young = 0.5, prime = 1.0, adult = 1.0, old = 0.7 },
+  -- Manure: piles accumulate where livestock stand. Shovelled for fertiliser.
+  manure = {
+    enabled        = true,
+    item           = 'ranch_manure',
+    perAnimalHours = 6,     -- one pile per animal per this many simulated hours
+    maxPerRanch    = 12,    -- piles stop accruing past this
+    yield          = { 1, 2 },
+    shovelSeconds  = 6,
+    sell           = Config.dollars(0.25),
+  },
+  -- Butchering (Rancher only — design §5.2 'manage'). Hangs off the barn.
+  butcher = {
+    seconds   = 12,
+    promptRange = 2.0,
+    -- Which mapped point the butcher station sits at (config/ranches.lua).
+    point     = 'barn',
+  },
+}
+
+-- ============================================================================
 -- Wander & the stuck watchdog. RDR3 peds route themselves over the game's
 -- navmesh once tasked — our job is to put them on ground the navmesh
 -- actually covers, and to notice when one is grinding into a surface

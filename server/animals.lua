@@ -192,6 +192,43 @@ function Animals.die(a, cause)
   end
 end
 
+--- Slaughter: like death, but deliberate and with no "it died" alarm to
+--- the crew — the boss chose this. Row kept as the record, slot freed.
+function Animals.slaughter(a, byCharid)
+  Spawns.despawn(a)
+  Db.markAnimalDead(a.id)
+  unindex(a)
+  local ranch = Ranches.get(a.ranch_id)
+  Events.animalDied({ ident = ranch and ranch.ident, animalId = a.id,
+                      species = a.species, cause = 'butchered' })
+end
+
+--- Life stage from simulated minutes (Phase 3 grows these for real; until
+--- then everything reads 'prime', which is the neutral yield multiplier).
+function Animals.stageOf(a)
+  local bands = (Config.Animals[a.species].growth or {}).stages
+  if not bands then return 'prime' end
+  local mins = a.sim_minutes or 0
+  local best = 'young'
+  for _, name in ipairs({ 'young', 'prime', 'adult', 'old' }) do
+    if bands[name] and mins >= bands[name] then best = name end
+  end
+  return best
+end
+
+--- Is this player close enough to the animal's ped to work on it? Server
+--- reads the entity itself — the client never states its own distance.
+function Animals.withinReach(src, a, range)
+  local ped = GetPlayerPed(src)
+  if not ped or ped == 0 then return false end
+  local entity = Spawns.entityOf(a.id)
+  if not entity then return false end
+  local pc, ac = GetEntityCoords(ped), GetEntityCoords(entity)
+  local dx, dy, dz = pc.x - ac.x, pc.y - ac.y, pc.z - ac.z
+  local reach = (range or 4.0) + 2.0
+  return (dx * dx + dy * dy + dz * dz) <= reach * reach
+end
+
 --- 'Cow' / 'Bull' / species label fallback, for player-facing lines.
 function Animals.labelOf(a)
   local spec = Config.Animals[a.species]
@@ -207,6 +244,8 @@ function Animals.view(a)
     id = a.id, species = a.species, sex = a.sex, name = a.name,
     label = Animals.labelOf(a),
     state = a.state, sick = a.sick_state,
+    ready = a.product_ready == true,
+    produce = (Config.Animals[a.species].produce or {}).verb,
     hunger = math.floor(a.hunger), thirst = math.floor(a.thirst),
     groom = Config.Animals[a.species].needsGroom and math.floor(a.groom) or nil,
     health = math.floor(a.health),

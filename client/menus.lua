@@ -79,7 +79,107 @@ end
 
 RegisterNetEvent('sovereign_ranch:client:herd', function(data)
   if type(data) ~= 'table' then return end
+  if RanchHerdBookMode == 'butcher' then
+    RanchHerdBookMode = nil
+    return openButcherList(data)
+  end
   openHerdBook(data)
+end)
+
+-- ============================================================================
+-- The butcher station: pick an animal, confirm plainly, and it is done.
+-- ============================================================================
+
+function openButcherList(data)
+  local items = {}
+  for _, v in ipairs(data.animals or {}) do
+    items[#items + 1] = {
+      id = tostring(v.id),
+      label = ('%s — %s'):format(v.name or 'Unnamed', v.label),
+      description = ('%s · %s'):format(
+        v.state == 'penned' and 'Barn' or 'Out', v.sick ~= 'healthy' and v.sick or 'healthy'),
+    }
+  end
+  if #items == 0 then
+    return exports.sovereign_ui:Notify({ tone = 'info', title = 'Butcher',
+      message = 'Nothing on the books to butcher.' })
+  end
+
+  exports.sovereign_ui:OpenMenu({
+    title = 'Butcher', eyebrow = data.ident or 'Ranch', items = items,
+  }, function(value, kind)
+    if kind ~= 'menu' or not value then return end
+    local animalId = tonumber(value)
+    local view
+    for _, v in ipairs(data.animals) do if v.id == animalId then view = v end end
+    if not view then return end
+
+    exports.sovereign_ui:OpenConfirm({
+      title = ('Butcher %s?'):format(view.name or view.label),
+      description = 'This ends the animal. The carcass yields meat, hide and tallow.',
+      detail = 'There is no undoing it.',
+      tone = 'warning', confirmLabel = 'Butcher',
+    }, function(confirmed)
+      if not confirmed then return end
+      CreateThread(function()
+        local done = RanchScenarioAction({
+          scenario = Config.CareAnims.fallback,
+          duration = (Config.Production.butcher.seconds or 12) * 1000,
+          label = 'Butchering...',
+        })
+        if done then TriggerServerEvent('sovereign_ranch:server:butcher', animalId) end
+      end)
+    end)
+  end)
+end
+
+-- ============================================================================
+-- Buyer counters (produce on the ranch, export in town)
+-- ============================================================================
+
+RegisterNetEvent('sovereign_ranch:client:prices', function(data)
+  if type(data) ~= 'table' then return end
+  local items, sellable = {}, false
+  for _, row in ipairs(data.rows or {}) do
+    if (row.held or 0) > 0 then sellable = true end
+    items[#items + 1] = {
+      id = row.item,
+      label = ('%s — %s each'):format(row.label, fmtDollars(row.unit)),
+      description = (row.held or 0) > 0
+        and ('You carry %d (%s)'):format(row.held, fmtDollars(row.unit * row.held))
+        or 'You carry none',
+    }
+  end
+
+  local actions = {}
+  if sellable then
+    actions[#actions + 1] = { id = 'sellall', label = 'Sell Everything I Carry',
+      description = 'Proceeds go to the ranch account' }
+  end
+  if data.liveBirds then
+    actions[#actions + 1] = { id = 'birds', label = 'Sell Live Birds',
+      description = ('%s a head'):format(fmtDollars(data.liveBirds)) }
+  end
+  for _, it in ipairs(items) do actions[#actions + 1] = it end
+
+  exports.sovereign_ui:OpenContext({
+    title = data.kind == 'export' and 'Meat Exporter' or 'Produce Buyer',
+    actions = actions,
+  }, function(actionId, kind)
+    if kind ~= 'context' or not actionId then return end
+    if actionId == 'sellall' then
+      TriggerServerEvent('sovereign_ranch:server:sell', data.kind)
+    elseif actionId == 'birds' then
+      exports.sovereign_ui:OpenQuantity({
+        label = 'How many birds?', value = 1, min = 1, max = 20, unit = 'head',
+      }, function(count, qkind)
+        if qkind == 'quantity' and tonumber(count) then
+          TriggerServerEvent('sovereign_ranch:server:sellBirds', tonumber(count))
+        end
+      end)
+    end
+    -- Tapping a price row is just reading the board; nothing to do.
+  end)
 end)
 
 RegisterCommand('herdbook', function()

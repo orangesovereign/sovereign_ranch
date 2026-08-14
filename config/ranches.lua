@@ -73,6 +73,13 @@ Config.Ranches = {
     -- never spawned at all). This one sits ~16 m from the barn.
     pasture    = { x = -1582.00, y = -1422.33, z = 81.40, h = 255.40, radius = 12.0 },
     chickenPen = { x = -1583.32, y = -1397.58, z = 81.80, h = 164.40, radius = 5.0 },
+    -- ⚠ Phase 2 wants one more survey: `buyer` — where the produce buyer
+    -- stands on this ranch (eggs, milk, wool, manure, live birds). Stand
+    -- at the spot, /sr_here, add it here, restart. Until it is mapped the
+    -- ranch simply has no produce counter; nothing else is affected.
+    -- buyer   = { x = 0.0, y = 0.0, z = 0.0, h = 0.0 },
+    -- The butcher station uses `barn`, already surveyed above.
+
     -- Pig & goat pen (surveyed 2026-08-14). Sits 11 m off the barn and
     -- 24 m from the corral centre, so the zone is kept tight: any bigger
     -- and it would reach the barn wall or bleed into the pasture circle.

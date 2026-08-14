@@ -33,6 +33,16 @@ Locales['en'] = {
   trough_watered    = 'Fresh water in the trough.',
   trough_full       = 'That trough is already full.',
   feed_scattered    = 'You scatter the feed across the ground.',
+
+  -- production (Phase 2)
+  collected          = 'Collected %d × %s.',
+  nothing_to_collect = 'There is nothing to take yet.',
+  butchered_title    = 'Butchered',
+  butchered_nothing  = 'The carcass yielded nothing worth keeping.',
+  sold_title         = 'Sold',
+  sold_total         = 'Paid %s into the ranch account.',
+  sold_birds         = '%d head sold — %s into the ranch account.',
+  nothing_to_sell    = 'You are carrying nothing this buyer wants.',
   care_too_far      = 'Get closer to the animal.',
   need_medicine     = 'You need %s for that.',
   not_sick          = 'Nothing ails this animal.',

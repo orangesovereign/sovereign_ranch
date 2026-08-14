@@ -35,7 +35,18 @@ Config.Animals = {
     needs   = { hungerPerHour = 8, thirstPerHour = 10, groomPerHour = 4 },
     growth  = { growMinutes = 1800, stages = { young = 0, prime = 600, adult = 1200, old = 1500 } },
     breeding = { gestationMinutes = 720, chance = 0.6, cooldownMinutes = 360 },
-    produce = { item = 'ranch_milk', minutes = 90, femaleOnly = true },
+    -- Phase 2. `produce`: what accrues passively while the animal is fed,
+    -- watered and healthy, and what an active collection hands over.
+    -- `verb` is the player-facing word; `sell` is the per-unit price the
+    -- on-ranch buyer pays. `butcher`: what a carcass yields, scaled by
+    -- life stage (Config.Production.stageYield).
+    produce = { item = 'ranch_milk', minutes = 90, femaleOnly = true,
+                yield = { 1, 2 }, verb = 'Milk', sell = Config.dollars(1.20) },
+    butcher = {
+      { item = 'ranch_beef',  min = 3, max = 6 },
+      { item = 'ranch_hide',  min = 1, max = 2 },
+      { item = 'ranch_tallow', min = 1, max = 2 },
+    },
   },
   pig = {
     label   = 'Pigs',
@@ -51,7 +62,12 @@ Config.Animals = {
     needs   = { hungerPerHour = 12, thirstPerHour = 10 },
     growth  = { growMinutes = 1200, stages = { young = 0, prime = 400, adult = 800, old = 1000 } },
     breeding = { gestationMinutes = 480, chance = 0.7, cooldownMinutes = 240 },
-    produce = nil,                                         -- pigs are the pork value chain, not a product timer
+    produce = nil,   -- pigs ARE the value chain: no timer, all carcass
+    butcher = {
+      { item = 'ranch_pork',   min = 4, max = 8 },
+      { item = 'ranch_hide',   min = 1, max = 1 },
+      { item = 'ranch_tallow', min = 1, max = 3 },
+    },
   },
   sheep = {
     label   = 'Sheep',
@@ -67,7 +83,13 @@ Config.Animals = {
     needs   = { hungerPerHour = 8, thirstPerHour = 8 },
     growth  = { growMinutes = 1500, stages = { young = 0, prime = 500, adult = 1000, old = 1250 } },
     breeding = { gestationMinutes = 600, chance = 0.65, cooldownMinutes = 300 },
-    produce = { item = 'ranch_wool', minutes = 240, femaleOnly = false },
+    produce = { item = 'ranch_wool', minutes = 240, femaleOnly = false,
+                yield = { 2, 4 }, verb = 'Shear', sell = Config.dollars(0.90) },
+    butcher = {
+      { item = 'ranch_mutton', min = 2, max = 5 },
+      { item = 'ranch_wool',   min = 1, max = 3 },
+      { item = 'ranch_hide',   min = 1, max = 1 },
+    },
   },
   goat = {
     label   = 'Goats',
@@ -83,7 +105,12 @@ Config.Animals = {
     needs   = { hungerPerHour = 9, thirstPerHour = 9 },
     growth  = { growMinutes = 1200, stages = { young = 0, prime = 400, adult = 800, old = 1000 } },
     breeding = { gestationMinutes = 480, chance = 0.65, cooldownMinutes = 300 },
-    produce = { item = 'ranch_goat_milk', minutes = 120, femaleOnly = true },
+    produce = { item = 'ranch_goat_milk', minutes = 120, femaleOnly = true,
+                yield = { 1, 2 }, verb = 'Milk', sell = Config.dollars(1.40) },
+    butcher = {
+      { item = 'ranch_mutton', min = 2, max = 4 },
+      { item = 'ranch_hide',   min = 1, max = 1 },
+    },
   },
   chicken = {
     label   = 'Chickens',
@@ -104,6 +131,13 @@ Config.Animals = {
     needs   = { hungerPerHour = 6, thirstPerHour = 6 },
     growth  = { growMinutes = 600, stages = { young = 0, prime = 200, adult = 400, old = 500 } },
     breeding = { gestationMinutes = 240, chance = 0.8, cooldownMinutes = 120 },
-    produce = { item = 'ranch_egg', minutes = 60, femaleOnly = true },
+    produce = { item = 'ranch_egg', minutes = 60, femaleOnly = true,
+                yield = { 1, 3 }, verb = 'Gather Eggs', sell = Config.dollars(0.35) },
+    butcher = {
+      { item = 'ranch_poultry',  min = 1, max = 2 },
+      { item = 'ranch_feathers', min = 1, max = 3 },
+    },
+    -- Birds are also sold live at the ranch, not driven to market.
+    sellLive = Config.dollars(4.50),
   },
 }

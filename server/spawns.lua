@@ -116,6 +116,15 @@ function Spawns.pushFeeding(ranchId, list)
   end
 end
 
+--- Push the manure piles of a ranch to everyone present (they are marker
+--- + prompt targets client-side).
+function Spawns.pushManure(ranchId)
+  local piles = Production.manureFor(ranchId)
+  for _, src in ipairs(membersPresentSrcs(ranchId)) do
+    TriggerClientEvent('sovereign_ranch:client:manure', src, piles)
+  end
+end
+
 --- Push the live trough/scatter list so clients can render and reason
 --- about them (fill prompts read the map's props directly; this is state).
 function Spawns.pushTroughs(ranchId)
@@ -189,6 +198,20 @@ CreateThread(function()
 
     -- Transitions.
     for ranchId, set in pairs(nowPresent) do
+      -- Arriving members get the property's mapped points, so the butcher
+      -- station and produce counter can offer their prompts.
+      for charid, psrc in pairs(set) do
+        if not (present[ranchId] and present[ranchId][charid]) then
+          local r = Ranches.get(ranchId)
+          if r then
+            TriggerClientEvent('sovereign_ranch:client:points', psrc,
+              Ranches.pointsOf(r.ident))
+            TriggerClientEvent('sovereign_ranch:client:manure', psrc,
+              Production.manureFor(ranchId))
+          end
+        end
+      end
+
       -- Steward must be present; (re)elect when missing or departed.
       local s = steward[ranchId]
       local stillHere = false

@@ -121,6 +121,28 @@ local function performCare(animalId, verb, serverEvent)
   end)
 end
 
+--- Take the product off an animal. Same shape as the care verbs: approach,
+--- hold the animal still, animate, and only then ask the server — which
+--- rolls the yield itself.
+function performCollect(animalId, view)
+  if performing then return end
+  performing = true
+  CreateThread(function()
+    local animalPed = RanchEntity(animalId)
+    local duration = (Config.Production.collectSeconds or 5) * 1000
+    if animalPed then approachAnimal(animalPed, duration + 3000) end
+
+    local done = RanchScenarioAction({
+      scenario = Config.CareAnims.fallback,   -- kneel-and-work; see the anim reference
+      duration = duration,
+      label = ('%s...'):format(view.produce or 'Collecting'),
+    })
+    if done then TriggerServerEvent('sovereign_ranch:server:collect', animalId) end
+    RanchResumeIdle(animalId)
+    performing = false
+  end)
+end
+
 --- Scatter chicken feed at your feet: the grain-throwing scenario, then the
 --- server decides whether it counted. The birds converge on the spot.
 function performScatter()
@@ -145,6 +167,11 @@ local function openTend(animalId)
   -- filled trough, and chickens eat feed scattered on the ground (Wilbur
   -- ruling 2026-08-13). What is left is genuinely hands-on work.
   local actions = {}
+  -- Anything ready to take comes FIRST — it is why you walked over.
+  if v.ready and v.produce then
+    actions[#actions + 1] = { id = 'collect', label = v.produce,
+      description = 'Ready now' }
+  end
   local scattered = Config.Animals[v.species] and Config.Animals[v.species].scattered
   if scattered then
     actions[#actions + 1] = { id = 'scatter', label = 'Scatter Feed',
@@ -166,7 +193,9 @@ local function openTend(animalId)
     actions = actions,
   }, function(actionId, kind)
     if kind ~= 'context' or not actionId then return end
-    if actionId == 'brush' then
+    if actionId == 'collect' then
+      performCollect(animalId, v)
+    elseif actionId == 'brush' then
       performCare(animalId, actionId, 'sovereign_ranch:server:care')
     elseif actionId == 'scatter' then
       performScatter()

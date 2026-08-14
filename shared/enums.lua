@@ -101,6 +101,36 @@ Enums.Err = {
   INTERNAL       = 'ERR_INTERNAL',
 }
 
+-- Player-facing names for the items this resource creates. Keep in step
+-- with sql/items.sql — that file is the inventory's truth, this is just
+-- what our own menus and cards call them.
+ItemLabels = {
+  ranch_milk      = 'Milk',
+  ranch_goat_milk = "Goat's Milk",
+  ranch_egg       = 'Eggs',
+  ranch_wool      = 'Wool',
+  ranch_manure    = 'Manure',
+  ranch_beef      = 'Beef',
+  ranch_pork      = 'Pork',
+  ranch_mutton    = 'Mutton',
+  ranch_poultry   = 'Poultry',
+  ranch_hide      = 'Hide',
+  ranch_tallow    = 'Tallow',
+  ranch_feathers  = 'Feathers',
+  ranch_feed      = 'Feed',
+  ranch_medicine  = 'Livestock Medicine',
+}
+
+function ItemLabel(item)
+  return ItemLabels[item] or tostring(item)
+end
+
+--- Integer cents → a human line. The suite stores money in minor units
+--- everywhere; this is the only place it becomes a dollar sign.
+function FmtMoney(cents)
+  return ('$%.2f'):format((tonumber(cents) or 0) / 100)
+end
+
 -- ============================================================================
 -- Locale accessor. Locales['en'] is loaded before this file (manifest order).
 -- ============================================================================

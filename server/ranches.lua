@@ -148,7 +148,8 @@ function Ranches.teardown(ident, reason)
   --    persisted (Spawns), then the DB-level pen as belt and braces for
   --    rows the cache never saw (crash leftovers).
   Spawns.penAllLive(r.id, 'teardown')
-  Troughs.clearRanch(r.id)   -- a lost ranch's feed does not follow the deed
+  Troughs.clearRanch(r.id)      -- a lost ranch's feed does not follow the deed
+  Production.clearManure(r.id)
   local penned = Db.penAllAnimals(r.id) or 0
   if reason == 'soldback' and Config.WipeHerdOnSellBack then
     Db.deleteAnimals(r.id)

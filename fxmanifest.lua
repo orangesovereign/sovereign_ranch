@@ -41,6 +41,8 @@ server_scripts {
   'server/members.lua',    -- crew membership, hire/fire/promote, grade + access sync
   'server/animals.lua',    -- the herd: cache, caps, buy, care, pen/release (Phase 1)
   'server/troughs.lua',    -- feed/water troughs + chicken scatter (Phase 1)
+  'server/production.lua', -- readiness, collection, manure, butchering (Phase 2)
+  'server/selling.lua',    -- produce + export counters into the ranch account (Phase 2)
   'server/spawns.lua',     -- presence sweep, steward orders, netId ledger + Phase 0 probe
   'server/needs.lua',      -- the SIM tick: needs decay, sickness ladder, death (Phase 1)
   'server/requests.lua',   -- the validated inbound net-event surface (Phase 1)
@@ -56,6 +58,7 @@ client_scripts {
   'client/animals.lua',    -- steward spawner, registry, dress rule (Phase 1)
   'client/care.lua',       -- tend prompt + status text (Phase 1)
   'client/troughs.lua',    -- trough discovery, fill prompt, scatter (Phase 1)
+  'client/production.lua', -- manure, butcher station, buyer counters (Phase 2)
   'client/menus.lua',      -- Herd Book + dealer (Phase 1)
 }
 

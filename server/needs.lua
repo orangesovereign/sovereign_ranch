@@ -86,6 +86,11 @@ local function tickAnimal(a, spec, dt)
   end
   a.feeding = feeding
 
+  -- 3. Production: readiness accrues only on a well-kept animal, and the
+  --    muck accrues regardless (Phase 2).
+  Production.tick(a, spec, dt)
+  Production.manureTick(a, dt)
+
   -- 2. Sickness ladder.
   local now = os.time()
   if a.sick_state == 'healthy' then

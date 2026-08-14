@@ -28,4 +28,47 @@ Config.Market = {
   MaxPerPurchase       = 5,     -- head per transaction (drive-home practicality)
   DeliveryDelayMinutes = 10,    -- delivered animals appear penned after this
   -- Delivery price premium is per-species: config/animals.lua price.delivery.
+
+  -- ==========================================================================
+  -- Phase 2 buyers. Same survey discipline as the dealer: nothing spawns
+  -- while `surveyed = false`, so a ped is never left floating in scenery.
+  -- Stand at the spot, /sr_here, paste, flip the flag, restart.
+  -- ==========================================================================
+
+  -- The produce buyer STANDS ON THE RANCH — this one is per-property, so
+  -- its position comes from config/ranches.lua (`buyer` point), not here.
+  -- Buys eggs, milk, wool, manure and live chickens at the per-species
+  -- `sell` prices. Proceeds go to the ranch business account.
+  produce = {
+    enabled     = true,
+    model       = 'u_m_m_valauctionforman_01',   -- placeholder; a farmhand suits better
+    promptLabel = 'Sell Produce',
+    point       = 'buyer',        -- mapped point name in config/ranches.lua
+  },
+
+  -- The EXPORT buyer takes meat in bulk at export rates — one fixed
+  -- location for the county, hence coords here rather than per ranch.
+  export = {
+    enabled  = true,
+    surveyed = false,             -- ⚠ survey before this ped appears
+    coords   = { x = 0.0, y = 0.0, z = 0.0, h = 0.0 },
+    model    = 'u_m_m_valauctionforman_01',      -- placeholder
+    promptLabel = 'Sell to the Exporter',
+    -- Export pays a premium over the on-ranch buyer for meat only.
+    rate     = 1.35,
+    items    = { 'ranch_pork', 'ranch_beef', 'ranch_mutton', 'ranch_poultry' },
+  },
+}
+
+-- Base prices the EXPORT buyer works from (per unit, before `rate`). The
+-- on-ranch buyer pays the per-species `sell` values in config/animals.lua;
+-- these cover butcher outputs, which no species "produces".
+Config.MeatPrices = {
+  ranch_pork     = Config.dollars(1.10),
+  ranch_beef     = Config.dollars(1.30),
+  ranch_mutton   = Config.dollars(1.00),
+  ranch_poultry  = Config.dollars(0.70),
+  ranch_hide     = Config.dollars(0.80),
+  ranch_tallow   = Config.dollars(0.40),
+  ranch_feathers = Config.dollars(0.20),
 }
