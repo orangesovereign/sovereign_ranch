@@ -470,5 +470,25 @@ RegisterCommand('sr_prompts', function()
   local n = 0
   for _ in pairs(RanchHerd or {}) do n = n + 1 end
   print(('  animals known to this client: %d'):format(n))
+
+  -- Ranch fixtures: what the client thinks is mapped, and how far it is.
+  local c2 = GetEntityCoords(PlayerPedId(), true, true)
+  local pushed = 0
+  for _ in pairs(RanchPoints or {}) do pushed = pushed + 1 end
+  print(('  mapped points pushed by server: %d%s'):format(
+    pushed, pushed == 0 and '  (falling back to config/ranches.lua)' or ''))
+  for ident, points in pairs(Config.Ranches or {}) do
+    for name, p in pairs(points) do
+      local dx, dy = c2.x - p.x, c2.y - p.y
+      local d = math.sqrt(dx * dx + dy * dy)
+      if d < 120.0 then
+        print(('    %s.%s  %.0fm away%s'):format(ident, name, d,
+          (name == (Config.Manager.point or 'manager') and d <= 3.0)
+            and '  <- manager, in prompt range' or ''))
+      end
+    end
+  end
+  print(('  manager ped: %s'):format(
+    RanchManagerPed and DoesEntityExist(RanchManagerPed) and 'spawned' or 'not spawned'))
   print('----------------------------------------')
 end, false)

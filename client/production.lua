@@ -40,11 +40,37 @@ RegisterNetEvent('sovereign_ranch:client:points', function(points)
   RanchPoints = type(points) == 'table' and points or {}
 end)
 
+--- Distance to a named mapped point.
+---
+--- The server pushes THIS ranch's points on arrival, but that push only
+--- fires on a presence transition — miss it (restart while standing in the
+--- yard, a sweep that lands oddly) and every world prompt on the property
+--- silently disappears. It also is not needed: `config/ranches.lua` is a
+--- shared script, so the client already knows every ranch's points. If the
+--- push has not arrived we simply scan the config for the nearest matching
+--- point.
+---
+--- Safe to be generous here — a prompt only ASKS. The server re-checks
+--- membership, grade and range on every action it backs.
 local function pointNear(pc, name)
+  if not name then return nil end
+
   local p = RanchPoints[name]
-  if not p then return nil end
-  local dx, dy = pc.x - p.x, pc.y - p.y
-  return p, dx * dx + dy * dy
+  if p then
+    local dx, dy = pc.x - p.x, pc.y - p.y
+    return p, dx * dx + dy * dy
+  end
+
+  local best, bestD2 = nil, nil
+  for _, points in pairs(Config.Ranches or {}) do
+    local q = points[name]
+    if q then
+      local dx, dy = pc.x - q.x, pc.y - q.y
+      local d2 = dx * dx + dy * dy
+      if not bestD2 or d2 < bestD2 then best, bestD2 = q, d2 end
+    end
+  end
+  return best, bestD2
 end
 
 -- ============================================================================
@@ -78,7 +104,14 @@ local function dropPrompt()
   target = nil
 end
 
+-- The live action for whatever the prompt currently points at. The prompt's
+-- onComplete is bound ONCE at creation, so it must call through this rather
+-- than capture a closure — otherwise walking from the coop to the manager
+-- relabels the prompt but still fires the coop's action.
+local pendingAction = nil
+
 local function ensurePrompt(label, onComplete)
+  pendingAction = onComplete
   if prompt then
     prompt:setLabel(label)
     return
@@ -88,7 +121,9 @@ local function ensurePrompt(label, onComplete)
     label = label,
     mode = 'hold', holdTime = 700,
     group = 'ranch_work', groupLabel = 'Ranch',
-    onComplete = onComplete,
+    onComplete = function()
+      if pendingAction then pendingAction() end
+    end,
   })
 end
 
@@ -186,18 +221,23 @@ end)
 -- ranch by design — no point mapped, no manager.
 -- ============================================================================
 
-local buyerPed = nil
+RanchManagerPed = nil   -- global: /sr_prompts reports on it from menus.lua
 
 CreateThread(function()
   while true do
     local wait = 3000
     local cfg = Config.Manager
-    local p = cfg and cfg.enabled and RanchPoints[cfg.point or 'manager']
+    -- Same reasoning as pointNear: fall back to the shared config so a
+    -- missed points push cannot leave the ranch without its manager.
+    local p = cfg and cfg.enabled
+      and (RanchPoints[cfg.point or 'manager']
+           or select(1, pointNear(GetEntityCoords(PlayerPedId(), true, true),
+                                  cfg.point or 'manager')))
     if p then
       local pc = GetEntityCoords(PlayerPedId(), true, true)
       local dx, dy = pc.x - p.x, pc.y - p.y
       local near = (dx * dx + dy * dy) < 14400.0    -- 120m
-      if near and not buyerPed then
+      if near and not RanchManagerPed then
         local model = GetHashKey(cfg.model)
         if IsModelValid(model) then
           RequestModel(model, false)
@@ -216,13 +256,13 @@ CreateThread(function()
               SetBlockingOfNonTemporaryEvents(ped, true)
               FreezeEntityPosition(ped, true)
               SetPedCanBeTargetted(ped, false)
-              buyerPed = ped
+              RanchManagerPed = ped
             end
           end
         end
-      elseif not near and buyerPed then
-        if DoesEntityExist(buyerPed) then DeleteEntity(buyerPed) end
-        buyerPed = nil
+      elseif not near and RanchManagerPed then
+        if DoesEntityExist(RanchManagerPed) then DeleteEntity(RanchManagerPed) end
+        RanchManagerPed = nil
       end
     end
     Wait(wait)
@@ -232,5 +272,5 @@ end)
 AddEventHandler('onResourceStop', function(res)
   if res ~= GetCurrentResourceName() then return end
   dropPrompt()
-  if buyerPed and DoesEntityExist(buyerPed) then DeleteEntity(buyerPed) end
+  if RanchManagerPed and DoesEntityExist(RanchManagerPed) then DeleteEntity(RanchManagerPed) end
 end)
