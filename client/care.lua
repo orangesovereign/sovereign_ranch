@@ -52,8 +52,9 @@ end
 -- deal). Scenario per verb/species from Config.CareAnims; female peds get
 -- the game-proven fallback for anything outside Config.FemaleSafeAnims
 -- (male-only conditional anims silently skip — the medical precedent).
--- IS_PED_MALE 0x6D9F5FAA7488BA46, TaskStartScenarioInPlaceHash
--- 0x524B54361229154F — both suite-proven call shapes.
+-- IS_PED_MALE 0x6D9F5FAA7488BA46. The scenario call itself lives in
+-- client/anim.lua — its signature is NOT the shape the suite has been
+-- using (see the note there; it was the cause of the stuck-player bug).
 -- ============================================================================
 
 local performing = false

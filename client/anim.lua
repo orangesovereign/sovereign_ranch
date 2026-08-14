@@ -33,11 +33,32 @@ function RanchAnimFor(verb, species)
   return name, set.duration or 5000
 end
 
---- Begin a scenario on a ped. Duration is generous: we end it ourselves.
+--- Begin a scenario on a ped.
+---
+--- ⚠ THE SIGNATURE IS NOT WHAT THE SUITE HAS BEEN PASSING (found
+--- 2026-08-14, natives_rdr3.json):
+---   TASK_START_SCENARIO_IN_PLACE_HASH(ped, scenarioHash, duration,
+---       playEnterAnim BOOL, conditionalHash Hash, heading FLOAT, p6 BOOL)
+--- The last three are a HASH, a FLOAT and a BOOL — not the three booleans
+--- everyone (this resource, and sovereign_herbs) was passing. Handing a
+--- boolean to the float heading slot left the task in a state that never
+--- completed: the animation looked finished, the prop looked gone, and the
+--- player stayed pinned until a weapon draw force-aborted the task. That
+--- is the "stuck after feeding" bug.
+---
+--- Duration is -1 by default: we own the ending (RanchEndScenario), and
+--- letting the engine time it out as well meant two things racing to
+--- finish one task.
 function RanchPlayScenario(ped, name, durationMs)
   if not name then return false end
-  Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(name),
-    (durationMs or 5000) + 1000, true, false, false, false)
+  Citizen.InvokeNative(0x524B54361229154F,
+    ped,
+    GetHashKey(name),
+    durationMs or -1,          -- int  duration (-1 = until we say stop)
+    true,                      -- BOOL playEnterAnim
+    0,                         -- Hash conditionalHash (0 = none)
+    GetEntityHeading(ped) + 0.0, -- float heading — keep them facing as they are
+    false)                     -- BOOL p6
   return true
 end
 
@@ -93,22 +114,26 @@ function RanchEndScenario(ped)
     -- 1. The polite exit: plays the outro and stows the prop.
     pcall(function() Citizen.InvokeNative(0xA3A9299C4F2ADB98, ped) end)
     local waited = 0
-    while waited < 2000 and inScenario() do Wait(50); waited = waited + 50 end
+    while waited < 1500 and inScenario() do Wait(50); waited = waited + 50 end
 
     -- 2. Still in it: demand an immediate exit.
     if inScenario() then
       pcall(function() Citizen.InvokeNative(0xF1C03A5352243A30, ped) end)
       local w2 = 0
-      while w2 < 800 and inScenario() do Wait(50); w2 = w2 + 50 end
-    end
-
-    -- 3. Last resort: hard clear. Ugly, but never leave a player stuck.
-    if inScenario() then
-      pcall(function() Citizen.InvokeNative(0xAAA34F8A7CB32098, ped, false, false) end)
+      while w2 < 600 and inScenario() do Wait(50); w2 = w2 + 50 end
     end
   end
 
+  -- 3. Then clear UNCONDITIONALLY.
+  --
+  -- Gating this on IS_PED_USING_ANY_SCENARIO was the second half of the
+  -- stuck bug: a scenario that never properly started reports false, so
+  -- the cleanup was skipped entirely and the player kept whatever broken
+  -- task they were left holding. The chore is stationary, so a hard clear
+  -- costs nothing visually and guarantees the player gets their body back.
   ClearPedTasks(ped, true, true)
+  pcall(function() Citizen.InvokeNative(0x176CECF6F920D707, ped) end)          -- CLEAR_PED_SECONDARY_TASK
+  pcall(function() Citizen.InvokeNative(0xAAA34F8A7CB32098, ped, false, false) end) -- CLEAR_PED_TASKS_IMMEDIATELY
 
   -- The outro is best-effort; this is the guarantee. Nothing this resource
   -- plays leaves anything in the player's hands.
@@ -131,7 +156,10 @@ function RanchScenarioAction(opts)
     Wait(300)
   end
 
-  RanchPlayScenario(ped, opts.scenario, opts.duration)
+  -- -1, not opts.duration: the progress bar times the chore and
+  -- RanchEndScenario ends the scenario. Giving the engine a duration too
+  -- meant two things racing to finish one task.
+  RanchPlayScenario(ped, opts.scenario, -1)
 
   local done = sv.progress.start({
     label = opts.label or 'Working...',

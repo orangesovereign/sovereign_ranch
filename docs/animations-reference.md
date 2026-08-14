@@ -18,7 +18,15 @@ lever and get promoted with a dated note.
 
 ```lua
 -- TaskStartScenarioInPlaceHash — proven live with WORLD_HUMAN_CROUCH_INSPECT
-Citizen.InvokeNative(0x524B54361229154F, ped, GetHashKey(scenario), durationMs, true, false, false, false)
+-- ⚠ CORRECTED 2026-08-14. The real signature is NOT seven booleans:
+--   TASK_START_SCENARIO_IN_PLACE_HASH(ped, scenarioHash, duration,
+--       playEnterAnim BOOL, conditionalHash HASH, heading FLOAT, p6 BOOL)
+-- Passing `false` into the FLOAT heading slot (the shape this doc, and
+-- sovereign_herbs, used) leaves the task in a state that never completes:
+-- the animation looks finished and the player stays pinned until a weapon
+-- draw force-aborts it. Duration -1 means "until we end it ourselves".
+Citizen.InvokeNative(0x524B54361229154F,
+  ped, GetHashKey(scenario), -1, true, 0, GetEntityHeading(ped) + 0.0, false)
 ```
 
 realestate's rummage lesson applies: these must be scenario **TYPES** (the
