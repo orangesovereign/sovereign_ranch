@@ -19,6 +19,7 @@ Ranches = {}
 
 local cache   = {}   -- id -> ranch row (live, write-through)
 local byIdent = {}   -- ident -> ranch row
+local missingStrikes = {}  -- ident -> consecutive reconciles missing from realestate
 
 local Err = Enums.Err
 
@@ -189,11 +190,28 @@ function Ranches.reconcile()
   end
 
   -- Records whose property vanished from realestate entirely (deleted MLO
-  -- listing): tear down but keep the row, same as ownership loss.
+  -- listing): tear down — but NEVER on first sighting. Realestate loads its
+  -- property cache asynchronously after 'started', so a reconcile that runs
+  -- against the not-yet-loaded cache sees every property as missing; acting
+  -- on that once tore down a healthy test ranch (live finding 2026-08-13).
+  -- Rule: a direct GetProperty recheck, then TWO consecutive reconciles
+  -- agreeing the property is gone before anything destructive happens.
   for _, r in pairs(cache) do
     if r.owner_charid and not seen[r.ident] then
-      Log.warn('reconcile: %s has a record but no realestate property — tearing down', r.ident)
-      Ranches.teardown(r.ident, 'reconcile')
+      if Estate.getProperty(r.ident) ~= nil then
+        missingStrikes[r.ident] = nil   -- cache was mid-load; property is real
+      else
+        missingStrikes[r.ident] = (missingStrikes[r.ident] or 0) + 1
+        if missingStrikes[r.ident] >= 2 then
+          Log.warn('reconcile: %s missing from realestate twice running — tearing down', r.ident)
+          missingStrikes[r.ident] = nil
+          Ranches.teardown(r.ident, 'reconcile')
+        else
+          Log.warn('reconcile: %s has a record but no realestate property — will confirm next pass before acting', r.ident)
+        end
+      end
+    else
+      missingStrikes[r.ident] = nil
     end
   end
 
