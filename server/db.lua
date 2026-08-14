@@ -38,6 +38,18 @@ function Db.execute(query, params)
   return safe(MySQL.update.await, query, params)
 end
 
+--- Atomic multi-statement transaction. stmts = { {query=, values={}}, ... }.
+--- Returns true only if every statement succeeded and the txn committed.
+--- One round trip for the lot — the suite's db.lua convention.
+function Db.transaction(stmts)
+  local ok, res = pcall(MySQL.transaction.await, stmts)
+  if not ok then
+    Log.error('db transaction error: %s', tostring(res))
+    return false
+  end
+  return res == true
+end
+
 -- ============================================================================
 -- Schema bootstrap (Config.AutoRunSchema) — sql/install.sql is idempotent.
 -- ============================================================================
@@ -220,21 +232,52 @@ function Db.insertAnimal(a)
   })
 end
 
---- Write-behind for one animal's mutable simulation fields.
-function Db.flushAnimal(a)
-  return Db.execute([[
+-- The SIM touches every live animal every tick, so the flush is the one
+-- query path that scales with herd size. Sending it a row at a time meant
+-- N round trips per flush and oxmysql queueing behind itself — a single
+-- UPDATE was reported at 2.2 s on the test server because of the backlog
+-- in front of it, not the statement. Everything goes in one transaction
+-- now (design §6.2: "one batched UPDATE per ranch per tick").
+local ANIMAL_UPDATE = [[
     UPDATE sovereign_ranch_animals SET
-      name = NULLIF(?, ''), sim_minutes = ?, scale = ?, health = ?,
-      hunger = ?, thirst = ?, groom = ?, sick_state = ?,
+      name = NULLIF(?, ''), sim_minutes = ?, scale = ?, variation = ?,
+      health = ?, hunger = ?, thirst = ?, groom = ?, sick_state = ?,
       pregnant_until = NULLIF(?, 0), product_progress = ?, product_ready = ?,
       state = ?, pos = NULLIF(?, '')
     WHERE id = ?
-  ]], {
-    a.name or '', a.sim_minutes or 0, a.scale or 0.5, a.health or 100,
-    a.hunger or 100, a.thirst or 100, a.groom or 100, a.sick_state or 'healthy',
+]]
+
+local function animalValues(a)
+  return {
+    a.name or '', a.sim_minutes or 0, a.scale or 0.5, a.variation or 0,
+    a.health or 100, a.hunger or 100, a.thirst or 100, a.groom or 100,
+    a.sick_state or 'healthy',
     a.pregnant_until or 0, a.product_progress or 0, a.product_ready and 1 or 0,
     a.state or 'penned', a.pos or '', a.id,
-  })
+  }
+end
+
+--- Write-behind for MANY animals in one round trip. Chunked so a very
+--- large herd cannot build a single enormous transaction.
+function Db.flushAnimals(rows)
+  if not rows or #rows == 0 then return 0 end
+  local written, chunk = 0, {}
+  for i = 1, #rows do
+    chunk[#chunk + 1] = { query = ANIMAL_UPDATE, values = animalValues(rows[i]) }
+    if #chunk >= 100 or i == #rows then
+      if Db.transaction(chunk) then written = written + #chunk end
+      chunk = {}
+    end
+  end
+  return written
+end
+
+--- Write-behind for one animal (single-animal paths: care, pen, rename).
+--- Delegates to the batch path so the two can never drift — they already
+--- had: this statement was still missing `variation` after the coat column
+--- landed, so a single-animal write silently reset an animal's appearance.
+function Db.flushAnimal(a)
+  return Db.flushAnimals({ a }) > 0
 end
 
 --- Write an animal's coat ONCE. Deliberately not part of flushAnimal:

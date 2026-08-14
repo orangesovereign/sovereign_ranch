@@ -90,22 +90,38 @@ end
 function Animals.touch(a) dirty[a.id] = true end
 
 function Animals.flush()
-  local n = 0
+  local n, rows = 0, {}
   for id in pairs(dirty) do
     local a = byId[id]
     if a then
-      Db.flushAnimal({
+      -- Coords go in at centimetre precision. Full doubles made the JSON
+      -- three times longer for a position nobody reads that closely.
+      local pos = ''
+      if a.pos then
+        pos = json.encode({
+          x = math.floor(a.pos.x * 100 + 0.5) / 100,
+          y = math.floor(a.pos.y * 100 + 0.5) / 100,
+          z = math.floor(a.pos.z * 100 + 0.5) / 100,
+        })
+      end
+      rows[#rows + 1] = {
         id = a.id, name = a.name, sim_minutes = a.sim_minutes, scale = a.scale,
+        variation = a.variation,
         health = a.health, hunger = a.hunger, thirst = a.thirst, groom = a.groom,
         sick_state = a.sick_state, pregnant_until = a.pregnant_until,
         product_progress = a.product_progress, product_ready = a.product_ready,
-        state = a.state, pos = a.pos and json.encode(a.pos) or '',
-      })
+        state = a.state, pos = pos,
+      }
       n = n + 1
     end
     dirty[id] = nil
   end
-  if n > 0 then Log.debug('flushed %d animal row(s)', n) end
+
+  -- ONE round trip for the whole herd, not one per animal.
+  if n > 0 then
+    Db.flushAnimals(rows)
+    Log.debug('flushed %d animal row(s) in one transaction', n)
+  end
   return n
 end
 
