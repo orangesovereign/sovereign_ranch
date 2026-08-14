@@ -43,9 +43,13 @@ Config.Market = {
   -- location for the county, hence coords here rather than per ranch.
   export = {
     enabled  = true,
-    surveyed = false,             -- ⚠ survey before this ped appears
-    coords   = { x = 0.0, y = 0.0, z = 0.0, h = 0.0 },
-    model    = 'u_m_m_valauctionforman_01',      -- placeholder
+    surveyed = true,             -- ⚠ survey before this ped appears
+    coords   = { x = -269.431, y = 690.22, z = 113.393, h = 116.76 },
+    -- Valentine's own butcher — verified in rdr3_discoveries peds_list
+    -- (0x23E0698B, 9 variations). Deliberately NOT the auction foreman:
+    -- the livestock dealer stands ~10 m from here, and two identical
+    -- foremen that close together read as a bug.
+    model    = 'u_m_m_valbutcher_01',
     promptLabel = 'Sell to the Exporter',
     -- Export pays a premium over the on-ranch buyer for meat only.
     rate     = 1.35,
